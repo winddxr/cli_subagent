@@ -237,21 +237,23 @@ GEMINI_PROFILE = CLIProfile(
 
 CODEX_PROFILE = CLIProfile(
     name="codex",
-    # Command: codex exec -m gpt-5.1 --json "{prompt}"
-    # Note: CODEX_HOME must point to a directory containing AGENTS.md
+    # Command: codex exec -m gpt-5.1 --json --skip-git-repo-check -C {temp_dir} "{prompt}"
+    # Note: Use -C to specify working directory containing AGENTS.md
+    # Do NOT override CODEX_HOME as it contains auth.json for authentication
     command_template=[
         "codex",
         "exec",
         "-m", "gpt-5.1",
         "--json",
+        "--skip-git-repo-check",
+        "-C", "{temp_dir}",  # Working directory with AGENTS.md
         "{prompt}",
     ],
     env_vars={
-        # CODEX_HOME should point to temp directory containing AGENTS.md
-        "CODEX_HOME": "{temp_dir}",
+        # Empty - do not override CODEX_HOME to preserve auth.json access
     },
     output_parser=parse_codex_ndjson,
-    requires_temp_dir=True,  # Codex needs AGENTS.md in CODEX_HOME
+    requires_temp_dir=True,  # Codex needs AGENTS.md in working directory
 )
 
 

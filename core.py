@@ -14,8 +14,91 @@ import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
+
+
+# =============================================================================
+# CLI Discovery Utilities
+# =============================================================================
+
+def _ensure_npm_in_path() -> None:
+    """Ensure npm global bin directory is in PATH for subprocess calls."""
+    # Common npm global paths on Windows
+    common_paths = [
+        r"C:\nvm4w\nodejs",
+        os.path.expandvars(r"%APPDATA%\npm"),
+        os.path.expanduser("~/.npm-global/bin"),
+        "/usr/local/bin",  # macOS/Linux
+    ]
+    
+    current_path = os.environ.get("PATH", "")
+    
+    for path in common_paths:
+        if os.path.exists(path) and path not in current_path:
+            os.environ["PATH"] = path + os.pathsep + current_path
+            current_path = os.environ["PATH"]
+
+
+# Ensure npm is in PATH at module load time
+_ensure_npm_in_path()
+
+
+@lru_cache(maxsize=16)
+def find_cli_executable(name: str) -> Optional[str]:
+    """Find CLI executable, trying various locations.
+    
+    Args:
+        name: Base name of the CLI (e.g., 'gemini', 'codex')
+        
+    Returns:
+        Full path to executable or name itself if found in PATH, None if not found
+    """
+    # Try direct command first (works if already in PATH)
+    try:
+        result = subprocess.run(
+            [name, "--version"],
+            capture_output=True,
+            timeout=10,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+        )
+        if result.returncode == 0:
+            return name
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        pass
+    
+    # Try with .cmd extension (Windows)
+    if os.name == 'nt':
+        cmd_name = f"{name}.cmd"
+        try:
+            result = subprocess.run(
+                [cmd_name, "--version"],
+                capture_output=True,
+                timeout=10,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            if result.returncode == 0:
+                return cmd_name
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+            pass
+    
+    # Try known paths on Windows
+    if os.name == 'nt':
+        known_paths = [
+            os.path.join(r"C:\nvm4w\nodejs", f"{name}.cmd"),
+            os.path.join(os.path.expandvars(r"%APPDATA%\npm"), f"{name}.cmd"),
+        ]
+        for path in known_paths:
+            if os.path.exists(path):
+                return path
+    
+    # Try shutil.which as a fallback
+    which_result = shutil.which(name)
+    if which_result:
+        return which_result
+    
+    return None
 
 
 @dataclass
@@ -228,9 +311,17 @@ class UniversalCLIAgent:
         }
         
         cmd = []
-        for part in self.profile.command_template:
+        for i, part in enumerate(self.profile.command_template):
             for placeholder, replacement in placeholders.items():
                 part = part.replace(placeholder, replacement)
+            
+            # For the first element (CLI executable), try to find full path
+            if i == 0:
+                cli_path = find_cli_executable(part)
+                if cli_path:
+                    part = cli_path
+            
             cmd.append(part)
         
         return cmd
+
