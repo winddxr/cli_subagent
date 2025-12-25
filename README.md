@@ -1,6 +1,6 @@
 # CLI Subagent Module
 
-通用 CLI 代理抽象层，支持通过配置驱动方式调用任意 LLM CLI（Codex/Gemini）。
+通用 CLI 代理抽象层，支持通过配置驱动方式调用任意 LLM CLI(Codex/Gemini)。
 
 ## 功能特性
 
