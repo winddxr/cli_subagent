@@ -231,8 +231,9 @@ class UniversalCLIAgent:
                 timeout=timeout,
                 env=env,
                 cwd=str(temp_dir) if temp_dir else None,
+                encoding="utf-8",
             )
-            
+
             # Parse output using profile-specific parser
             return self.profile.output_parser(
                 result.stdout,

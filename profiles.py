@@ -42,12 +42,13 @@ def parse_gemini_json(stdout: str, stderr: str, returncode: int) -> AgentResult:
             content="",
             error={
                 "type": "cli_error",
-                "message": stderr or f"CLI exited with code {returncode}",
+                "message": (stderr or "") or f"CLI exited with code {returncode}",
                 "returncode": returncode,
                 "raw_output": stdout[:1000] if stdout else None,
             },
         )
     
+    stdout = stdout or "{}"
     try:
         data = json.loads(stdout)
     except json.JSONDecodeError as e:
@@ -139,6 +140,10 @@ def parse_codex_ndjson(stdout: str, stderr: str, returncode: int) -> AgentResult
     usage: Dict[str, Any] = {}
     errors: List[Dict] = []
     
+    
+    stdout = stdout or ""
+    stderr = stderr or ""
+    
     for line in stdout.strip().split("\n"):
         if not line.strip():
             continue
@@ -224,7 +229,6 @@ GEMINI_PROFILE = CLIProfile(
     command_template=[
         "gemini",
         "--output-format", "json",
-        "--prompt", "{prompt}",
     ],
     env_vars={
         # System prompt file path
@@ -247,7 +251,6 @@ CODEX_PROFILE = CLIProfile(
         "--json",
         "--skip-git-repo-check",
         "-C", "{temp_dir}",  # Working directory with AGENTS.md
-        "{prompt}",
     ],
     env_vars={
         # Empty - do not override CODEX_HOME to preserve auth.json access
