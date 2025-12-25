@@ -231,8 +231,9 @@ GEMINI_PROFILE = CLIProfile(
         "--output-format", "json",
     ],
     env_vars={
-        # System prompt file path
-        "GEMINI_WRITE_SYSTEM_MD": "{persona_path}",
+        # System prompt file path - GEMINI_SYSTEM_MD overrides the built-in system prompt
+        # Note: GEMINI_WRITE_SYSTEM_MD is different - it EXPORTS the default prompt to a file
+        "GEMINI_SYSTEM_MD": "{persona_path}",
     },
     output_parser=parse_gemini_json,
     requires_temp_dir=False,
