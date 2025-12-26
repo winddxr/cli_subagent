@@ -86,27 +86,48 @@ def parse_gemini_json(stdout: str, stderr: str, returncode: int) -> AgentResult:
 def _normalize_gemini_stats(raw_stats: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize Gemini stats to standard format.
     
-    Mapping:
+    Mapping (supports multi-model responses):
     - stats.models.*.tokens.prompt -> input_tokens
-    - stats.models.*.tokens.response -> output_tokens
+    - stats.models.*.tokens.candidates -> output_tokens
     - stats.models.*.tokens.total -> total_tokens
     - stats.models.*.tokens.cached -> cached_tokens
+    - stats.models.*.tokens.thoughts -> thoughts_tokens
+    - stats.models.*.tokens.tool -> tool_tokens
+    
+    Also preserves per-model breakdown in 'per_model' for cost estimation.
     """
     stats: Dict[str, Any] = {
         "input_tokens": 0,
         "output_tokens": 0,
         "total_tokens": 0,
         "cached_tokens": 0,
+        "thoughts_tokens": 0,
+        "tool_tokens": 0,
+        "per_model": {},  # Per-model breakdown for cost estimation
         "raw": raw_stats,
     }
     
     models = raw_stats.get("models", {})
     for model_name, model_data in models.items():
         tokens = model_data.get("tokens", {})
+        
+        # Aggregate totals
         stats["input_tokens"] += tokens.get("prompt", 0)
-        stats["output_tokens"] += tokens.get("response", 0)
+        stats["output_tokens"] += tokens.get("candidates", 0)
         stats["total_tokens"] += tokens.get("total", 0)
         stats["cached_tokens"] += tokens.get("cached", 0)
+        stats["thoughts_tokens"] += tokens.get("thoughts", 0)
+        stats["tool_tokens"] += tokens.get("tool", 0)
+        
+        # Store per-model breakdown
+        stats["per_model"][model_name] = {
+            "input_tokens": tokens.get("prompt", 0),
+            "output_tokens": tokens.get("candidates", 0),
+            "total_tokens": tokens.get("total", 0),
+            "cached_tokens": tokens.get("cached", 0),
+            "thoughts_tokens": tokens.get("thoughts", 0),
+            "tool_tokens": tokens.get("tool", 0),
+        }
     
     return stats
 

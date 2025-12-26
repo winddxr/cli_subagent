@@ -131,6 +131,19 @@ class AgentResult:
     @property
     def cached_tokens(self) -> int:
         return self.stats.get("cached_tokens", 0)
+    
+    @property
+    def thoughts_tokens(self) -> int:
+        return self.stats.get("thoughts_tokens", 0)
+    
+    @property
+    def tool_tokens(self) -> int:
+        return self.stats.get("tool_tokens", 0)
+    
+    @property
+    def per_model(self) -> Dict[str, Dict[str, int]]:
+        """Per-model token breakdown (Gemini only). Returns empty dict for other backends."""
+        return self.stats.get("per_model", {})
 
 
 @dataclass

@@ -62,8 +62,12 @@ else:
 | `stats` | `dict` | Token 用量统计 |
 | `error` | `dict` | 错误详情 (失败时) |
 | `input_tokens` | `int` | 输入 Token 数 |
-| `output_tokens` | `int` | 输出 Token 数 |
+| `output_tokens` | `int` | 输出 Token 数 (Gemini: candidates) |
 | `total_tokens` | `int` | 总 Token 数 |
+| `cached_tokens` | `int` | 缓存命中 Token 数 |
+| `thoughts_tokens` | `int` | 思考 Token 数 (仅 Gemini) |
+| `tool_tokens` | `int` | 工具调用 Token 数 (仅 Gemini) |
+| `per_model` | `dict` | 按模型分类的 Token 统计 (仅 Gemini，用于分模型计费) |
 
 ### `CLIProfile`
 
