@@ -9,6 +9,7 @@ This module provides the core abstractions for interacting with various LLM CLIs
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -18,6 +19,10 @@ from enum import Enum
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
+
+# Library-style logging: use NullHandler so callers control logging config
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 # =============================================================================
@@ -132,6 +137,7 @@ def resolve_cli_executable(
     
     # Use shutil.which to find the executable
     exe = shutil.which(name, path=extended_path)
+    logger.debug("shutil.which('%s') -> %s", name, exe)
     
     # On Windows, also try with .cmd extension if not found
     if os.name == "nt" and not exe:
@@ -155,8 +161,10 @@ def resolve_cli_executable(
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
             )
             if result.returncode != 0:
+                logger.debug("CLI '%s' --version failed with code %d", exe, result.returncode)
                 return None
-        except (subprocess.TimeoutExpired, OSError, Exception):
+        except (subprocess.TimeoutExpired, OSError, Exception) as e:
+            logger.debug("CLI '%s' --version raised %s: %s", exe, type(e).__name__, e)
             return None
     
     return exe
@@ -452,6 +460,7 @@ class UniversalCLIAgent:
             cmd = self._build_command(temp_dir, env)
             
             # Execute subprocess
+            logger.debug("Executing: %s (cwd=%s)", cmd, cwd)
             result = subprocess.run(
                 cmd,
                 input=task_content,
@@ -464,11 +473,17 @@ class UniversalCLIAgent:
             )
 
             # Parse output using profile-specific parser
-            return self.profile.output_parser(
+            logger.debug(
+                "CLI returned: code=%d, stdout=%d bytes, stderr=%d bytes",
+                result.returncode, len(result.stdout or ""), len(result.stderr or "")
+            )
+            parsed = self.profile.output_parser(
                 result.stdout,
                 result.stderr,
                 result.returncode,
             )
+            logger.debug("Parsed result: ok=%s, tokens=%d", parsed.ok, parsed.total_tokens)
+            return parsed
             
         except subprocess.TimeoutExpired:
             return AgentResult(
@@ -494,6 +509,7 @@ class UniversalCLIAgent:
                 content="",
                 error={
                     "type": "execution_error",
+                    "exception_type": type(e).__name__,
                     "message": str(e),
                 },
             )

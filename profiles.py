@@ -9,7 +9,7 @@ Each profile defines:
 
 Supported CLIs:
 - Codex (OpenAI): Uses CODEX_HOME for AGENTS.md, NDJSON streaming output
-- Gemini (Google): Uses GEMINI_WRITE_SYSTEM_MD for system prompt, JSON output
+- Gemini (Google): Uses GEMINI_SYSTEM_MD for system prompt, JSON output
 """
 
 from __future__ import annotations

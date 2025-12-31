@@ -9,6 +9,8 @@
 - **标准化**: 统一的输入/输出接口 (`AgentResult`)
 - **Token 统计**: 自动归一化不同 CLI 的用量数据
 - **双模式**: 支持文件模式和目录模式两种输入方式
+- **日志支持**: 使用标准 `logging` 模块，调用方可控
+- **详细错误**: 返回结构化错误信息，便于调用方决策重试
 
 ## 安装
 
@@ -170,6 +172,53 @@ from cli_subagent import InputMode
 InputMode.FILE       # 文件模式
 InputMode.DIRECTORY  # 目录模式
 ```
+
+### 错误处理
+
+当 `result.ok == False` 时，`result.error` 包含结构化错误信息：
+
+| 错误类型 | 说明 | 是否建议重试 |
+|----------|------|-------------|
+| `timeout` | CLI 执行超时 | ✅ 可重试 |
+| `cli_not_found` | CLI 可执行文件未找到 | ❌ 不重试 |
+| `cli_error` | CLI 返回非零退出码 | 视情况 |
+| `parse_error` | 输出解析失败 | ❌ 不重试 |
+| `agent_error` | Agent 内部错误 (Codex) | 视情况 |
+| `execution_error` | 其他执行异常 | 视 `exception_type` |
+
+`execution_error` 包含 `exception_type` 字段帮助判断：
+
+```python
+if not result.ok:
+    err = result.error
+    if err["type"] == "timeout":
+        # 可以重试
+        pass
+    elif err["type"] == "execution_error":
+        # 根据异常类型判断
+        if err.get("exception_type") in ("OSError", "IOError"):
+            # 可能可重试
+            pass
+```
+
+### 日志记录
+
+模块使用标准 `logging` 模块，默认不输出任何日志（使用 `NullHandler`）。
+
+启用日志：
+
+```python
+import logging
+
+# 方式 1: 全局启用 DEBUG
+logging.basicConfig(level=logging.DEBUG)
+
+# 方式 2: 仅启用 cli_subagent 日志
+logging.getLogger("cli_subagent.core").setLevel(logging.DEBUG)
+logging.getLogger("cli_subagent.core").addHandler(logging.StreamHandler())
+```
+
+日志包含：CLI 发现、命令执行、返回状态、解析结果等关键信息。
 
 ## 添加新的 CLI
 
