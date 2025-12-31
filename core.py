@@ -165,11 +165,17 @@ def resolve_cli_executable(
 # Legacy alias for backwards compatibility
 @lru_cache(maxsize=16)
 def find_cli_executable(name: str) -> Optional[str]:
-    """Find CLI executable (legacy wrapper).
+    """Find CLI executable (DEPRECATED).
     
-    This function is kept for backwards compatibility.
-    Prefer using resolve_cli_executable() directly for more control.
+    .. deprecated::
+        Use resolve_cli_executable() directly for more control.
     """
+    import warnings
+    warnings.warn(
+        "find_cli_executable is deprecated, use resolve_cli_executable instead",
+        DeprecationWarning,
+        stacklevel=2
+    )
     return resolve_cli_executable(name, verify_version=True)
 
 
@@ -224,10 +230,10 @@ class CLIProfile:
     
     Attributes:
         name: Profile identifier (e.g., "codex", "gemini").
-        command_template: Command line template. Supports placeholders:
-            - {prompt}: The task prompt content
+        command_template: Command line template. Supports path placeholders only:
             - {agent_prompt_path}: Path to the agent system prompt file
-            - {temp_dir}: Temporary directory path (for Codex AGENTS.md)
+            - {temp_dir}: Temporary directory path
+            Note: Task prompt is ALWAYS passed via stdin, NOT via command template.
         env_vars: Environment variables to set. Supports same placeholders.
         output_parser: Function to parse stdout/stderr into AgentResult.
         requires_temp_dir: Whether this CLI needs a temp dir setup (e.g., Codex in file mode).
@@ -492,13 +498,11 @@ class UniversalCLIAgent:
     def _prepare_temp_dir(self, temp_dir: Path) -> None:
         """Prepare temporary directory for CLIs that need it (file mode only).
         
-        For Codex, this copies the agent prompt file as AGENTS.override.md
-        to completely override any default system prompt.
+        Copies agent prompt file to temp dir with the configured override filename.
         """
-        if self.profile.name == "codex" and self.agent_prompt_path:
-            # Use AGENTS.override.md to completely override the system prompt
-            override_name = self.profile.file_mode_override_name or "AGENTS.override.md"
-            agents_md_path = temp_dir / override_name
+        # Copy agent prompt to temp dir if profile defines an override filename
+        if self.profile.file_mode_override_name and self.agent_prompt_path:
+            agents_md_path = temp_dir / self.profile.file_mode_override_name
             shutil.copy2(self.agent_prompt_path, agents_md_path)
     
     def _build_env(self, temp_dir: Optional[Path]) -> Dict[str, str]:
@@ -552,7 +556,6 @@ class UniversalCLIAgent:
             prompt_path = self.agent_prompt_path or Path("")
         
         placeholders = {
-            "{prompt}": task_content,
             "{agent_prompt_path}": str(prompt_path),
             "{temp_dir}": str(temp_dir) if temp_dir else "",
         }

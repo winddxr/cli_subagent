@@ -245,15 +245,14 @@ def _normalize_codex_stats(usage: Dict[str, Any]) -> Dict[str, Any]:
 
 GEMINI_PROFILE = CLIProfile(
     name="gemini",
-    # Command: gemini --output-format json --prompt "{prompt}"
-    # Note: We pass prompt via --prompt argument, not stdin
+    # Command template for Gemini CLI
+    # Task prompt is passed via stdin, system prompt via GEMINI_SYSTEM_MD env var
     command_template=[
         "gemini",
         "--output-format", "json",
     ],
     env_vars={
         # System prompt file path - GEMINI_SYSTEM_MD overrides the built-in system prompt
-        # Note: GEMINI_WRITE_SYSTEM_MD is different - it EXPORTS the default prompt to a file
         "GEMINI_SYSTEM_MD": "{agent_prompt_path}",
     },
     output_parser=parse_gemini_json,

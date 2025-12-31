@@ -150,12 +150,15 @@ CLI 配置定义：
 | 属性 | 类型 | 描述 |
 |------|------|------|
 | `name` | `str` | Profile 标识 |
-| `command_template` | `List[str]` | 命令行模板 |
+| `command_template` | `List[str]` | 命令行模板（仅支持路径占位符） |
 | `env_vars` | `Dict[str, str]` | 环境变量模板 |
 | `output_parser` | `Callable` | 输出解析函数 |
 | `requires_temp_dir` | `bool` | 是否需要临时目录 (文件模式) |
 | `file_mode_override_name` | `str` | 文件模式下复制的文件名 (Codex: `AGENTS.override.md`) |
 | `dir_mode_system_file` | `str` | 目录模式下系统提示词的相对路径 |
+
+> **注意**: 任务提示词（Task Prompt）始终通过 **stdin** 传递，不在 `command_template` 中使用。
+> 支持的占位符仅限于路径：`{agent_prompt_path}`, `{temp_dir}`。
 
 ### `InputMode`
 
