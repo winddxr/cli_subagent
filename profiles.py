@@ -264,8 +264,8 @@ GEMINI_PROFILE = CLIProfile(
 
 CODEX_PROFILE = CLIProfile(
     name="codex",
-    # Command: codex exec -m gpt-5.1 --json --skip-git-repo-check -C {temp_dir} "{prompt}"
-    # Note: Use -C to specify working directory containing AGENTS.md
+    # Command template for Codex CLI
+    # Both file mode and directory mode use subprocess cwd to set working directory.
     # Do NOT override CODEX_HOME as it contains auth.json for authentication
     command_template=[
         "codex",
@@ -273,7 +273,7 @@ CODEX_PROFILE = CLIProfile(
         "-m", "gpt-5.1",
         "--json",
         "--skip-git-repo-check",
-        "-C", "{temp_dir}",  # Working directory with AGENTS.md/AGENTS.override.md
+        # No -C flag needed: subprocess cwd handles working directory
     ],
     env_vars={
         # Empty - do not override CODEX_HOME to preserve auth.json access
