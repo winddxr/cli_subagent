@@ -331,6 +331,13 @@ class UniversalCLIAgent:
                 raise FileNotFoundError(f"Agent workspace not found: {self.agent_workspace}")
             if not self.agent_workspace.is_dir():
                 raise ValueError(f"Agent workspace must be a directory: {self.agent_workspace}")
+            # Validate system prompt file exists in directory mode
+            expected_prompt = self.agent_workspace / self.profile.dir_mode_system_file
+            if self.profile.dir_mode_system_file and not expected_prompt.exists():
+                raise FileNotFoundError(
+                    f"System prompt not found in workspace: {expected_prompt}\n"
+                    f"Expected location based on profile '{self.profile.name}': {self.profile.dir_mode_system_file}"
+                )
     
     @classmethod
     def from_file(
@@ -442,7 +449,7 @@ class UniversalCLIAgent:
             env = self._build_env(temp_dir)
             
             # Build command (pass env for extended PATH resolution)
-            cmd = self._build_command(task_content, temp_dir, env)
+            cmd = self._build_command(temp_dir, env)
             
             # Execute subprocess
             result = subprocess.run(
@@ -538,16 +545,17 @@ class UniversalCLIAgent:
     
     def _build_command(
         self,
-        task_content: str,
         temp_dir: Optional[Path],
         env: Optional[Dict[str, str]] = None,
     ) -> List[str]:
         """Build the command with placeholder substitution.
         
         Args:
-            task_content: The prompt/task content.
             temp_dir: Temporary directory path for CLIs that need it.
             env: Environment dict (used for CLI resolution with extended PATH).
+            
+        Note:
+            Task prompt is passed via stdin in call(), not via command template.
         """
         # Determine agent prompt path for placeholders
         if self.mode == InputMode.DIRECTORY and self.agent_workspace:
