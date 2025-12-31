@@ -14,11 +14,22 @@
 
 ## 安装
 
-模块为项目内置，无需额外安装。确保项目根目录在 Python 路径中：
+### 作为 Git 子模块 (推荐)
 
-```python
-import sys
-sys.path.insert(0, "path/to/RednoteWriterDev/scripts")
+如果你希望将此代理作为另一个项目的一部分使用：
+
+```bash
+git submodule add https://github.com/winddxr/cli_subagent.git scripts/cli_subagent
+```
+
+### 独立使用
+
+克隆仓库并确保 `scripts` 目录在 Python 路径中：
+
+```bash
+git clone https://github.com/winddxr/cli_subagent.git
+cd cli_subagent
+export PYTHONPATH=$PYTHONPATH:$(pwd)
 ```
 
 ## 快速开始
