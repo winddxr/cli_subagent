@@ -1,30 +1,38 @@
 # CLI Subagent Module
 
-通用 CLI 代理抽象层，支持通过配置驱动方式调用任意 LLM CLI (Codex/Gemini)。
+[中文](./README_CN.md)
 
-## 功能特性
+Project Goal: To allow you to use the CLI as a subagent or a single-call API in various scenarios, achieving low-cost multi-model invocation. When started in directory mode, each CLI can serve as a relatively complex subagent. You can flexibly use it wherever you need the "Big Three" (GPT, CLAUDE, and GEMINI) API models.
 
-- **解耦**: 编排逻辑与底层 CLI 实现分离
-- **可扩展**: 新增 CLI 只需定义新的 Profile 配置
-- **标准化**: 统一的输入/输出接口 (`AgentResult`)
-- **Token 统计**: 自动归一化不同 CLI 的用量数据
-- **双模式**: 支持文件模式和目录模式两种输入方式
-- **日志支持**: 使用标准 `logging` 模块，调用方可控
-- **详细错误**: 返回结构化错误信息，便于调用方决策重试
+The ultimate goal is simple: Save money.
 
-## 安装
+Full vibe coding. Not elegant.
 
-### 作为 Git 子模块 (推荐)
+Universal CLI agent abstraction layer, supporting the invocation of arbitrary LLM CLIs (Codex/Gemini) via configuration-driven methods.
 
-如果你希望将此代理作为另一个项目的一部分使用：
+## Features
+
+- **Decoupled**: Orchestration logic separated from underlying CLI implementation
+- **Extensible**: Adding a new CLI only requires defining a new Profile configuration
+- **Standardized**: Unified input/output interface (`AgentResult`)
+- **Token Statistics**: Automatically normalize usage data from different CLIs
+- **Dual Mode**: Supports both file mode and directory mode inputs
+- **Logging Support**: Uses standard `logging` module, controllable by the caller
+- **Detailed Errors**: Returns structured error information for caller retry decisions
+
+## Installation
+
+### As a Git Submodule (Recommended)
+
+If you wish to use this agent as part of another project:
 
 ```bash
 git submodule add https://github.com/winddxr/cli_subagent.git scripts/cli_subagent
 ```
 
-### 独立使用
+### Standalone Use
 
-克隆仓库并确保 `scripts` 目录在 Python 路径中：
+Clone the repository and ensure the `scripts` directory is in your Python path:
 
 ```bash
 git clone https://github.com/winddxr/cli_subagent.git
@@ -32,21 +40,21 @@ cd cli_subagent
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 ```
 
-## 快速开始
+## Quick Start
 
-### 自动检测模式（推荐）
+### Auto-Detection Mode (Recommended)
 
 ```python
 from cli_subagent import UniversalCLIAgent, GEMINI_PROFILE
 
-# 自动检测输入是文件还是目录
+# Automatically detect if input is a file or directory
 agent = UniversalCLIAgent.from_path(
     profile=GEMINI_PROFILE,
     agent_name="creator",
-    path="./prompts/creator.system.md"  # 文件或目录
+    path="./prompts/creator.system.md"  # File or directory
 )
 
-result = agent.call("生成一个创意概念...")
+result = agent.call("Generate a creative concept...")
 if result.ok:
     print(result.content)
     print(f"Tokens: {result.total_tokens}")
@@ -54,7 +62,7 @@ else:
     print(f"Error: {result.error}")
 ```
 
-### 文件模式
+### File Mode
 
 ```python
 from cli_subagent import UniversalCLIAgent, GEMINI_PROFILE
@@ -64,15 +72,15 @@ agent = UniversalCLIAgent.from_file(
     agent_name="creator",
     agent_prompt_path="./prompts/creator.system.md"
 )
-result = agent.call("生成一个创意概念...")
+result = agent.call("Generate a creative concept...")
 ```
 
-### 目录模式
+### Directory Mode
 
 ```python
 from cli_subagent import UniversalCLIAgent, CODEX_PROFILE
 
-# 目录结构要求:
+# Directory structure requirements:
 # - Codex: {workspace}/AGENTS.md
 # - Gemini: {workspace}/.gemini/system.md
 agent = UniversalCLIAgent.from_directory(
@@ -80,22 +88,22 @@ agent = UniversalCLIAgent.from_directory(
     agent_name="coder",
     agent_workspace="./workspaces/coder"
 )
-result = agent.call("实现该功能...")
+result = agent.call("Implement this function...")
 ```
 
-## 支持的 CLI
+## Supported CLIs
 
-| CLI | Profile | 说明 |
+| CLI | Profile | Description |
 |-----|---------|----- |
-| **Gemini** | `GEMINI_PROFILE` | 使用 `GEMINI_SYSTEM_MD` 环境变量指定系统提示词 |
-| **Codex** | `CODEX_PROFILE` | 使用 `AGENTS.override.md` (文件模式) 或 `AGENTS.md` (目录模式) |
+| **Gemini** | `GEMINI_PROFILE` | Uses `GEMINI_SYSTEM_MD` environment variable to specify system prompt |
+| **Codex** | `CODEX_PROFILE` | Uses `AGENTS.override.md` (File Mode) or `AGENTS.md` (Directory Mode) |
 
-## 目录结构约定
+## Directory Structure Convention
 
 ### Codex Workspace
 ```
 workspace/
-└── AGENTS.md              # 或 AGENTS.override.md
+└── AGENTS.md              # or AGENTS.override.md
 ```
 
 ### Gemini Workspace
@@ -105,143 +113,143 @@ workspace/
     └── system.md
 ```
 
-## API 参考
+## API Reference
 
 ### `UniversalCLIAgent`
 
-主代理类，提供三种工厂方法：
+Main agent class, providing three factory methods:
 
 ```python
-# 自动检测模式（推荐）
+# Auto-detection mode (Recommended)
 agent = UniversalCLIAgent.from_path(
-    profile: CLIProfile,   # CLI 配置
-    agent_name: str,       # Agent 名称 (用于日志)
-    path: Path | str,      # 文件或目录路径
+    profile: CLIProfile,   # CLI Configuration
+    agent_name: str,       # Agent Name (for logging)
+    path: Path | str,      # File or directory path
 )
 
-# 文件模式
+# File mode
 agent = UniversalCLIAgent.from_file(
     profile: CLIProfile,
     agent_name: str,
-    agent_prompt_path: Path | str,  # 系统提示词文件
+    agent_prompt_path: Path | str,  # System prompt file
 )
 
-# 目录模式
+# Directory mode
 agent = UniversalCLIAgent.from_directory(
     profile: CLIProfile,
     agent_name: str,
-    agent_workspace: Path | str,    # Workspace 目录
+    agent_workspace: Path | str,    # Workspace directory
 )
 
-# 调用 Agent
+# Call Agent
 result = agent.call(
-    task_content: str,     # 任务提示词
-    timeout: int = 300,    # 超时秒数
+    task_content: str,     # Task prompt
+    timeout: int = 300,    # Timeout in seconds
 ) -> AgentResult
 ```
 
 ### `AgentResult`
 
-标准化的调用结果：
+Standardized call result:
 
-| 属性 | 类型 | 描述 |
+| Attribute | Type | Description |
 |------|------|------|
-| `ok` | `bool` | 调用是否成功 |
-| `content` | `str` | AI 生成的内容 (Markdown) |
-| `stats` | `dict` | Token 用量统计 |
-| `error` | `dict` | 错误详情 (失败时) |
-| `input_tokens` | `int` | 输入 Token 数 |
-| `output_tokens` | `int` | 输出 Token 数 |
-| `total_tokens` | `int` | 总 Token 数 |
-| `cached_tokens` | `int` | 缓存命中 Token 数 |
-| `per_model` | `dict` | 按模型分类的 Token 统计 (仅 Gemini) |
+| `ok` | `bool` | Whether the call was successful |
+| `content` | `str` | AI generated content (Markdown) |
+| `stats` | `dict` | Token usage statistics |
+| `error` | `dict` | Error details (if failed) |
+| `input_tokens` | `int` | Input Token count |
+| `output_tokens` | `int` | Output Token count |
+| `total_tokens` | `int` | Total Token count |
+| `cached_tokens` | `int` | Cache hit Token count |
+| `per_model` | `dict` | Token statistics by model (Gemini only) |
 
 ### `CLIProfile`
 
-CLI 配置定义：
+CLI Configuration Definition:
 
-| 属性 | 类型 | 描述 |
+| Attribute | Type | Description |
 |------|------|------|
-| `name` | `str` | Profile 标识 |
-| `command_template` | `List[str]` | 命令行模板（仅支持路径占位符） |
-| `env_vars` | `Dict[str, str]` | 环境变量模板 |
-| `output_parser` | `Callable` | 输出解析函数 |
-| `requires_temp_dir` | `bool` | 是否需要临时目录 (文件模式) |
-| `file_mode_override_name` | `str` | 文件模式下复制的文件名 (Codex: `AGENTS.override.md`) |
-| `dir_mode_system_file` | `str` | 目录模式下系统提示词的相对路径 |
+| `name` | `str` | Profile Identifier |
+| `command_template` | `List[str]` | Command line template (only supports path placeholders) |
+| `env_vars` | `Dict[str, str]` | Environment variable template |
+| `output_parser` | `Callable` | Output parsing function |
+| `requires_temp_dir` | `bool` | Whether a temporary directory is required (File Mode) |
+| `file_mode_override_name` | `str` | Filename to copy in file mode (Codex: `AGENTS.override.md`) |
+| `dir_mode_system_file` | `str` | Relative path to system prompt file in directory mode |
 
-> **注意**: 任务提示词（Task Prompt）始终通过 **stdin** 传递，不在 `command_template` 中使用。
-> 支持的占位符仅限于路径：`{agent_prompt_path}`, `{temp_dir}`。
+> **Note**: Task Prompt is always passed via **stdin**, not used in `command_template`.
+> Supported placeholders are limited to paths: `{agent_prompt_path}`, `{temp_dir}`.
 
 ### `InputMode`
 
-输入模式枚举：
+Input Mode Enum:
 
 ```python
 from cli_subagent import InputMode
 
-InputMode.FILE       # 文件模式
-InputMode.DIRECTORY  # 目录模式
+InputMode.FILE       # File Mode
+InputMode.DIRECTORY  # Directory Mode
 ```
 
-### 错误处理
+### Error Handling
 
-当 `result.ok == False` 时，`result.error` 包含结构化错误信息：
+When `result.ok == False`, `result.error` contains structured error information:
 
-| 错误类型 | 说明 | 是否建议重试 |
+| Error Type | Description | Retry Suggested |
 |----------|------|-------------|
-| `timeout` | CLI 执行超时 | ✅ 可重试 |
-| `cli_not_found` | CLI 可执行文件未找到 | ❌ 不重试 |
-| `cli_error` | CLI 返回非零退出码 | 视情况 |
-| `parse_error` | 输出解析失败 | ❌ 不重试 |
-| `agent_error` | Agent 内部错误 (Codex) | 视情况 |
-| `execution_error` | 其他执行异常 | 视 `exception_type` |
+| `timeout` | CLI execution timeout | ✅ Retryable |
+| `cli_not_found` | CLI executable not found | ❌ Do not retry |
+| `cli_error` | CLI returned non-zero exit code | Depends |
+| `parse_error` | Output parsing failed | ❌ Do not retry |
+| `agent_error` | Agent internal error (Codex) | Depends |
+| `execution_error` | Other execution exceptions | Depends on `exception_type` |
 
-`execution_error` 包含 `exception_type` 字段帮助判断：
+`execution_error` contains `exception_type` field to help judge:
 
 ```python
 if not result.ok:
     err = result.error
     if err["type"] == "timeout":
-        # 可以重试
+        # Can retry
         pass
     elif err["type"] == "execution_error":
-        # 根据异常类型判断
+        # Judge based on exception type
         if err.get("exception_type") in ("OSError", "IOError"):
-            # 可能可重试
+            # May be retryable
             pass
 ```
 
-### 日志记录
+### Logging
 
-模块使用标准 `logging` 模块，默认不输出任何日志（使用 `NullHandler`）。
+The module uses the standard `logging` module and does not output any logs by default (uses `NullHandler`).
 
-启用日志：
+Enable logging:
 
 ```python
 import logging
 
-# 方式 1: 全局启用 DEBUG
+# Method 1: Enable DEBUG globally
 logging.basicConfig(level=logging.DEBUG)
 
-# 方式 2: 仅启用 cli_subagent 日志
+# Method 2: Enable only cli_subagent logs
 logging.getLogger("cli_subagent.core").setLevel(logging.DEBUG)
 logging.getLogger("cli_subagent.core").addHandler(logging.StreamHandler())
 ```
 
-日志包含：CLI 发现、命令执行、返回状态、解析结果等关键信息。
+Logs include: CLI discovery, command execution, return status, parsing results, etc.
 
-## 添加新的 CLI
+## Adding a New CLI
 
-1. 在 `profiles.py` 中定义新的解析函数
-2. 创建新的 `CLIProfile` 实例
-3. 添加到 `PROFILES` 字典
+1. Define a new parsing function in `profiles.py`
+2. Create a new `CLIProfile` instance
+3. Add to `PROFILES` dictionary
 
-示例：
+Example:
 
 ```python
 def parse_new_cli(stdout: str, stderr: str, returncode: int) -> AgentResult:
-    # 解析逻辑
+    # Parsing logic
     ...
 
 NEW_CLI_PROFILE = CLIProfile(
@@ -255,22 +263,13 @@ NEW_CLI_PROFILE = CLIProfile(
 PROFILES["new_cli"] = NEW_CLI_PROFILE
 ```
 
-## 测试
 
-```bash
-# 单元测试
-uv run python -m pytest tests/test_cli_subagent.py -v
-
-# 真实 CLI 调用测试 (需要配置凭据)
-uv run python tests/test_real_cli_invocation.py
-```
-
-## 文件结构
+## File Structure
 
 ```
 cli_subagent/
-├── README.md       # 本文档
-├── __init__.py     # 包导出
-├── core.py         # 核心类定义 (UniversalCLIAgent, AgentResult, InputMode)
-└── profiles.py     # CLI Profile 配置 (GEMINI_PROFILE, CODEX_PROFILE)
+├── README.md       # This document
+├── __init__.py     # Package exports
+├── core.py         # Core class definitions (UniversalCLIAgent, AgentResult, InputMode)
+└── profiles.py     # CLI Profile configurations (GEMINI_PROFILE, CODEX_PROFILE)
 ```
