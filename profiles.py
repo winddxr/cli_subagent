@@ -254,10 +254,11 @@ GEMINI_PROFILE = CLIProfile(
     env_vars={
         # System prompt file path - GEMINI_SYSTEM_MD overrides the built-in system prompt
         # Note: GEMINI_WRITE_SYSTEM_MD is different - it EXPORTS the default prompt to a file
-        "GEMINI_SYSTEM_MD": "{persona_path}",
+        "GEMINI_SYSTEM_MD": "{agent_prompt_path}",
     },
     output_parser=parse_gemini_json,
     requires_temp_dir=False,
+    dir_mode_system_file=".gemini/system.md",
 )
 
 
@@ -272,13 +273,15 @@ CODEX_PROFILE = CLIProfile(
         "-m", "gpt-5.1",
         "--json",
         "--skip-git-repo-check",
-        "-C", "{temp_dir}",  # Working directory with AGENTS.md
+        "-C", "{temp_dir}",  # Working directory with AGENTS.md/AGENTS.override.md
     ],
     env_vars={
         # Empty - do not override CODEX_HOME to preserve auth.json access
     },
     output_parser=parse_codex_ndjson,
-    requires_temp_dir=True,  # Codex needs AGENTS.md in working directory
+    requires_temp_dir=True,  # Only needed in file mode
+    file_mode_override_name="AGENTS.override.md",  # Completely override system prompt
+    dir_mode_system_file="AGENTS.md",  # Or user-placed AGENTS.override.md
 )
 
 

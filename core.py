@@ -14,9 +14,10 @@ import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
+from enum import Enum
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 
 # =============================================================================
@@ -225,11 +226,13 @@ class CLIProfile:
         name: Profile identifier (e.g., "codex", "gemini").
         command_template: Command line template. Supports placeholders:
             - {prompt}: The task prompt content
-            - {persona_path}: Path to the persona/system file
+            - {agent_prompt_path}: Path to the agent system prompt file
             - {temp_dir}: Temporary directory path (for Codex AGENTS.md)
         env_vars: Environment variables to set. Supports same placeholders.
         output_parser: Function to parse stdout/stderr into AgentResult.
-        requires_temp_dir: Whether this CLI needs a temp dir setup (e.g., Codex).
+        requires_temp_dir: Whether this CLI needs a temp dir setup (e.g., Codex in file mode).
+        file_mode_override_name: Filename to use when copying prompt to temp dir (Codex: AGENTS.override.md).
+        dir_mode_system_file: Expected system prompt path relative to workspace dir.
         model: Optional model name override.
     """
     name: str
@@ -237,7 +240,15 @@ class CLIProfile:
     env_vars: Dict[str, str]
     output_parser: Callable[[str, str, int], AgentResult]
     requires_temp_dir: bool = False
+    file_mode_override_name: str = ""  # e.g., "AGENTS.override.md" for Codex
+    dir_mode_system_file: str = ""     # e.g., "AGENTS.md" or ".gemini/system.md"
     model: Optional[str] = None
+
+
+class InputMode(Enum):
+    """Input mode for CLI agent invocation."""
+    FILE = "file"           # Single system prompt file
+    DIRECTORY = "directory" # Workspace directory with expected structure
 
 
 class UniversalCLIAgent:
@@ -250,37 +261,152 @@ class UniversalCLIAgent:
     - Output parsing through profile-specific parsers
     - Temporary directory management for CLIs that need it (e.g., Codex)
     
-    Example:
-        >>> from agents.profiles import GEMINI_PROFILE
-        >>> agent = UniversalCLIAgent(
+    Supports two input modes:
+    - File mode: Use a single system prompt file (original behavior)
+    - Directory mode: Use a workspace directory with expected structure
+    
+    Example (file mode):
+        >>> from cli_subagent.profiles import GEMINI_PROFILE
+        >>> agent = UniversalCLIAgent.from_file(
         ...     profile=GEMINI_PROFILE,
-        ...     persona_name="creator",
-        ...     persona_path=Path("./agents/personas/creator.system.md")
+        ...     agent_name="creator",
+        ...     agent_prompt_path=Path("./prompts/creator.system.md")
         ... )
         >>> result = agent.call("Generate a creative concept for...")
-        >>> if result.ok:
-        ...     print(result.content)
+    
+    Example (directory mode):
+        >>> agent = UniversalCLIAgent.from_directory(
+        ...     profile=CODEX_PROFILE,
+        ...     agent_name="coder",
+        ...     agent_workspace=Path("./workspaces/coder")
+        ... )
+        >>> result = agent.call("Implement the feature...")
     """
     
     def __init__(
         self,
         profile: CLIProfile,
-        persona_name: str,
-        persona_path: Path,
+        agent_name: str,
+        agent_prompt_path: Optional[Path] = None,
+        agent_workspace: Optional[Path] = None,
     ):
         """Initialize the CLI agent.
         
         Args:
             profile: The CLI profile configuration to use.
-            persona_name: A human-readable name for logging/debugging.
-            persona_path: Path to the persona/system prompt file.
+            agent_name: A human-readable name for logging/debugging.
+            agent_prompt_path: Path to the agent system prompt file (file mode).
+            agent_workspace: Path to the workspace directory (directory mode).
+            
+        Raises:
+            ValueError: If neither or both agent_prompt_path and agent_workspace are provided.
+            FileNotFoundError: If the specified path does not exist.
         """
         self.profile = profile
-        self.persona_name = persona_name
-        self.persona_path = Path(persona_path).resolve()
+        self.agent_name = agent_name
         
-        if not self.persona_path.exists():
-            raise FileNotFoundError(f"Persona file not found: {self.persona_path}")
+        # Validate input mode
+        if agent_prompt_path and agent_workspace:
+            raise ValueError("Cannot specify both agent_prompt_path and agent_workspace")
+        if not agent_prompt_path and not agent_workspace:
+            raise ValueError("Must specify either agent_prompt_path or agent_workspace")
+        
+        if agent_prompt_path:
+            self.mode = InputMode.FILE
+            self.agent_prompt_path = Path(agent_prompt_path).resolve()
+            self.agent_workspace = None
+            if not self.agent_prompt_path.exists():
+                raise FileNotFoundError(f"Agent prompt file not found: {self.agent_prompt_path}")
+        else:
+            self.mode = InputMode.DIRECTORY
+            self.agent_workspace = Path(agent_workspace).resolve()
+            self.agent_prompt_path = None
+            if not self.agent_workspace.exists():
+                raise FileNotFoundError(f"Agent workspace not found: {self.agent_workspace}")
+            if not self.agent_workspace.is_dir():
+                raise ValueError(f"Agent workspace must be a directory: {self.agent_workspace}")
+    
+    @classmethod
+    def from_file(
+        cls,
+        profile: CLIProfile,
+        agent_name: str,
+        agent_prompt_path: Union[str, Path],
+    ) -> "UniversalCLIAgent":
+        """Create an agent in file mode with a single system prompt file.
+        
+        Args:
+            profile: The CLI profile configuration to use.
+            agent_name: A human-readable name for logging/debugging.
+            agent_prompt_path: Path to the agent system prompt file.
+            
+        Returns:
+            A configured UniversalCLIAgent instance.
+        """
+        return cls(
+            profile=profile,
+            agent_name=agent_name,
+            agent_prompt_path=Path(agent_prompt_path),
+        )
+    
+    @classmethod
+    def from_directory(
+        cls,
+        profile: CLIProfile,
+        agent_name: str,
+        agent_workspace: Union[str, Path],
+    ) -> "UniversalCLIAgent":
+        """Create an agent in directory mode with a workspace directory.
+        
+        Expected directory structure:
+        - Codex: {workspace}/AGENTS.md or AGENTS.override.md
+        - Gemini: {workspace}/.gemini/system.md
+        
+        Args:
+            profile: The CLI profile configuration to use.
+            agent_name: A human-readable name for logging/debugging.
+            agent_workspace: Path to the workspace directory.
+            
+        Returns:
+            A configured UniversalCLIAgent instance.
+        """
+        return cls(
+            profile=profile,
+            agent_name=agent_name,
+            agent_workspace=Path(agent_workspace),
+        )
+    
+    @classmethod
+    def from_path(
+        cls,
+        profile: CLIProfile,
+        agent_name: str,
+        path: Union[str, Path],
+    ) -> "UniversalCLIAgent":
+        """Auto-detect input type and create agent in appropriate mode.
+        
+        Automatically determines whether the path is a file or directory
+        and calls from_file() or from_directory() accordingly.
+        
+        Args:
+            profile: The CLI profile configuration to use.
+            agent_name: A human-readable name for logging/debugging.
+            path: Path to either a system prompt file or workspace directory.
+            
+        Returns:
+            A configured UniversalCLIAgent instance.
+            
+        Raises:
+            FileNotFoundError: If the path does not exist.
+        """
+        resolved = Path(path).resolve()
+        if not resolved.exists():
+            raise FileNotFoundError(f"Path not found: {resolved}")
+        
+        if resolved.is_dir():
+            return cls.from_directory(profile, agent_name, resolved)
+        else:
+            return cls.from_file(profile, agent_name, resolved)
     
     def call(self, task_content: str, timeout: int = 300) -> AgentResult:
         """Invoke the CLI with the given task content.
@@ -293,12 +419,18 @@ class UniversalCLIAgent:
             AgentResult with the response content and stats.
         """
         temp_dir: Optional[Path] = None
+        cwd: Optional[Path] = None
         
         try:
-            # Prepare temp directory if needed (e.g., for Codex AGENTS.md)
-            if self.profile.requires_temp_dir:
+            # Determine working directory and temp dir based on mode
+            if self.mode == InputMode.DIRECTORY:
+                # Directory mode: use workspace as cwd, no temp dir needed
+                cwd = self.agent_workspace
+            elif self.profile.requires_temp_dir:
+                # File mode with temp dir requirement (e.g., Codex)
                 temp_dir = Path(tempfile.mkdtemp(prefix=f"cli_agent_{self.profile.name}_"))
                 self._prepare_temp_dir(temp_dir)
+                cwd = temp_dir
             
             # Build environment variables
             env = self._build_env(temp_dir)
@@ -314,7 +446,7 @@ class UniversalCLIAgent:
                 text=True,
                 timeout=timeout,
                 env=env,
-                cwd=str(temp_dir) if temp_dir else None,
+                cwd=str(cwd) if cwd else None,
                 encoding="utf-8",
             )
 
@@ -358,13 +490,16 @@ class UniversalCLIAgent:
                 shutil.rmtree(temp_dir, ignore_errors=True)
     
     def _prepare_temp_dir(self, temp_dir: Path) -> None:
-        """Prepare temporary directory for CLIs that need it.
+        """Prepare temporary directory for CLIs that need it (file mode only).
         
-        For Codex, this copies the persona file as AGENTS.md.
+        For Codex, this copies the agent prompt file as AGENTS.override.md
+        to completely override any default system prompt.
         """
-        if self.profile.name == "codex":
-            agents_md_path = temp_dir / "AGENTS.md"
-            shutil.copy2(self.persona_path, agents_md_path)
+        if self.profile.name == "codex" and self.agent_prompt_path:
+            # Use AGENTS.override.md to completely override the system prompt
+            override_name = self.profile.file_mode_override_name or "AGENTS.override.md"
+            agents_md_path = temp_dir / override_name
+            shutil.copy2(self.agent_prompt_path, agents_md_path)
     
     def _build_env(self, temp_dir: Optional[Path]) -> Dict[str, str]:
         """Build environment variables with placeholder substitution.
@@ -377,8 +512,15 @@ class UniversalCLIAgent:
         # Inject extended PATH for CLI discovery (per-subprocess, not global)
         env["PATH"] = build_extended_path()
         
+        # Determine agent prompt path for placeholders
+        if self.mode == InputMode.DIRECTORY and self.agent_workspace:
+            # In directory mode, use the expected system file path
+            prompt_path = self.agent_workspace / self.profile.dir_mode_system_file
+        else:
+            prompt_path = self.agent_prompt_path or Path("")
+        
         placeholders = {
-            "{persona_path}": str(self.persona_path),
+            "{agent_prompt_path}": str(prompt_path),
             "{temp_dir}": str(temp_dir) if temp_dir else "",
         }
         
@@ -403,9 +545,15 @@ class UniversalCLIAgent:
             temp_dir: Temporary directory path for CLIs that need it.
             env: Environment dict (used for CLI resolution with extended PATH).
         """
+        # Determine agent prompt path for placeholders
+        if self.mode == InputMode.DIRECTORY and self.agent_workspace:
+            prompt_path = self.agent_workspace / self.profile.dir_mode_system_file
+        else:
+            prompt_path = self.agent_prompt_path or Path("")
+        
         placeholders = {
             "{prompt}": task_content,
-            "{persona_path}": str(self.persona_path),
+            "{agent_prompt_path}": str(prompt_path),
             "{temp_dir}": str(temp_dir) if temp_dir else "",
         }
         
