@@ -303,6 +303,7 @@ class UniversalCLIAgent:
         agent_name: str,
         agent_prompt_path: Optional[Path] = None,
         agent_workspace: Optional[Path] = None,
+        model: Optional[str] = None,
     ):
         """Initialize the CLI agent.
         
@@ -311,6 +312,7 @@ class UniversalCLIAgent:
             agent_name: A human-readable name for logging/debugging.
             agent_prompt_path: Path to the agent system prompt file (file mode).
             agent_workspace: Path to the workspace directory (directory mode).
+            model: Optional model name to use (passed as -m flag to CLI).
             
         Raises:
             ValueError: If neither or both agent_prompt_path and agent_workspace are provided.
@@ -318,6 +320,7 @@ class UniversalCLIAgent:
         """
         self.profile = profile
         self.agent_name = agent_name
+        self.model = model
         
         # Validate input mode
         if agent_prompt_path and agent_workspace:
@@ -353,6 +356,7 @@ class UniversalCLIAgent:
         profile: CLIProfile,
         agent_name: str,
         agent_prompt_path: Union[str, Path],
+        model: Optional[str] = None,
     ) -> "UniversalCLIAgent":
         """Create an agent in file mode with a single system prompt file.
         
@@ -360,6 +364,7 @@ class UniversalCLIAgent:
             profile: The CLI profile configuration to use.
             agent_name: A human-readable name for logging/debugging.
             agent_prompt_path: Path to the agent system prompt file.
+            model: Optional model name to use (passed as -m flag to CLI).
             
         Returns:
             A configured UniversalCLIAgent instance.
@@ -368,6 +373,7 @@ class UniversalCLIAgent:
             profile=profile,
             agent_name=agent_name,
             agent_prompt_path=Path(agent_prompt_path),
+            model=model,
         )
     
     @classmethod
@@ -376,6 +382,7 @@ class UniversalCLIAgent:
         profile: CLIProfile,
         agent_name: str,
         agent_workspace: Union[str, Path],
+        model: Optional[str] = None,
     ) -> "UniversalCLIAgent":
         """Create an agent in directory mode with a workspace directory.
         
@@ -387,6 +394,7 @@ class UniversalCLIAgent:
             profile: The CLI profile configuration to use.
             agent_name: A human-readable name for logging/debugging.
             agent_workspace: Path to the workspace directory.
+            model: Optional model name to use (passed as -m flag to CLI).
             
         Returns:
             A configured UniversalCLIAgent instance.
@@ -395,6 +403,7 @@ class UniversalCLIAgent:
             profile=profile,
             agent_name=agent_name,
             agent_workspace=Path(agent_workspace),
+            model=model,
         )
     
     @classmethod
@@ -403,6 +412,7 @@ class UniversalCLIAgent:
         profile: CLIProfile,
         agent_name: str,
         path: Union[str, Path],
+        model: Optional[str] = None,
     ) -> "UniversalCLIAgent":
         """Auto-detect input type and create agent in appropriate mode.
         
@@ -413,6 +423,7 @@ class UniversalCLIAgent:
             profile: The CLI profile configuration to use.
             agent_name: A human-readable name for logging/debugging.
             path: Path to either a system prompt file or workspace directory.
+            model: Optional model name to use (passed as -m flag to CLI).
             
         Returns:
             A configured UniversalCLIAgent instance.
@@ -425,20 +436,28 @@ class UniversalCLIAgent:
             raise FileNotFoundError(f"Path not found: {resolved}")
         
         if resolved.is_dir():
-            return cls.from_directory(profile, agent_name, resolved)
+            return cls.from_directory(profile, agent_name, resolved, model=model)
         else:
-            return cls.from_file(profile, agent_name, resolved)
+            return cls.from_file(profile, agent_name, resolved, model=model)
     
-    def call(self, task_content: str, timeout: int = 300) -> AgentResult:
+    def call(
+        self,
+        task_content: str,
+        timeout: int = 300,
+        model: Optional[str] = None,
+    ) -> AgentResult:
         """Invoke the CLI with the given task content.
         
         Args:
             task_content: The prompt/task to send to the LLM.
             timeout: Maximum seconds to wait for the CLI to complete.
+            model: Optional model override (takes precedence over __init__ model).
             
         Returns:
             AgentResult with the response content and stats.
         """
+        # Model priority: call() > __init__() > profile.model
+        effective_model = model or self.model or self.profile.model
         temp_dir: Optional[Path] = None
         cwd: Optional[Path] = None
         
@@ -457,7 +476,7 @@ class UniversalCLIAgent:
             env = self._build_env(temp_dir)
             
             # Build command (pass env for extended PATH resolution)
-            cmd = self._build_command(temp_dir, env)
+            cmd = self._build_command(temp_dir, env, effective_model)
             
             # Execute subprocess
             logger.debug("Executing: %s (cwd=%s)", cmd, cwd)
@@ -563,12 +582,14 @@ class UniversalCLIAgent:
         self,
         temp_dir: Optional[Path],
         env: Optional[Dict[str, str]] = None,
+        model: Optional[str] = None,
     ) -> List[str]:
         """Build the command with placeholder substitution.
         
         Args:
             temp_dir: Temporary directory path for CLIs that need it.
             env: Environment dict (used for CLI resolution with extended PATH).
+            model: Optional model name to add as -m flag.
             
         Note:
             Task prompt is passed via stdin in call(), not via command template.
@@ -609,6 +630,10 @@ class UniversalCLIAgent:
                     )
             
             cmd.append(part)
+        
+        # Add model flag if specified
+        if model:
+            cmd.extend(["-m", model])
         
         return cmd
 

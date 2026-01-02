@@ -247,6 +247,7 @@ GEMINI_PROFILE = CLIProfile(
     name="gemini",
     # Command template for Gemini CLI
     # Task prompt is passed via stdin, system prompt via GEMINI_SYSTEM_MD env var
+    # Note: -m flag is added dynamically by UniversalCLIAgent if model is specified
     command_template=[
         "gemini",
         "--output-format", "json",
@@ -266,10 +267,10 @@ CODEX_PROFILE = CLIProfile(
     # Command template for Codex CLI
     # Both file mode and directory mode use subprocess cwd to set working directory.
     # Do NOT override CODEX_HOME as it contains auth.json for authentication
+    # Note: -m flag is added dynamically by UniversalCLIAgent if model is specified
     command_template=[
         "codex",
         "exec",
-        "-m", "gpt-5.1",
         "--json",
         "--skip-git-repo-check",
         # No -C flag needed: subprocess cwd handles working directory

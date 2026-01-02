@@ -123,6 +123,7 @@ agent = UniversalCLIAgent.from_path(
     profile: CLIProfile,   # CLI 配置
     agent_name: str,       # Agent 名称 (用于日志)
     path: Path | str,      # 文件或目录路径
+    model: str | None = None,  # 可选：模型名称 (如 "gpt-5.1", "gemini-2.5-pro")
 )
 
 # 文件模式
@@ -130,6 +131,7 @@ agent = UniversalCLIAgent.from_file(
     profile: CLIProfile,
     agent_name: str,
     agent_prompt_path: Path | str,  # 系统提示词文件
+    model: str | None = None,       # 可选：模型名称
 )
 
 # 目录模式
@@ -137,14 +139,20 @@ agent = UniversalCLIAgent.from_directory(
     profile: CLIProfile,
     agent_name: str,
     agent_workspace: Path | str,    # Workspace 目录
+    model: str | None = None,       # 可选：模型名称
 )
 
 # 调用 Agent
 result = agent.call(
     task_content: str,     # 任务提示词
     timeout: int = 300,    # 超时秒数
+    model: str | None = None,  # 可选：运行时覆盖模型 (优先级最高)
 ) -> AgentResult
 ```
+
+> **模型参数优先级**: `call(model=)` > `__init__(model=)` > `profile.model`
+> 
+> 若不传入 `model` 参数，CLI 将使用其默认模型启动。
 
 ### `AgentResult`
 
@@ -260,7 +268,6 @@ NEW_CLI_PROFILE = CLIProfile(
 
 PROFILES["new_cli"] = NEW_CLI_PROFILE
 ```
-
 
 ## 文件结构
 
