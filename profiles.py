@@ -248,9 +248,11 @@ GEMINI_PROFILE = CLIProfile(
     # Command template for Gemini CLI
     # Task prompt is passed via stdin, system prompt via GEMINI_SYSTEM_MD env var
     # Note: -m flag is added dynamically by UniversalCLIAgent if model is specified
+    # --skip-trust is required since Gemini CLI v0.35+ for headless/non-interactive mode
     command_template=[
         "gemini",
         "--output-format", "json",
+        "--skip-trust",
     ],
     env_vars={
         # System prompt file path - GEMINI_SYSTEM_MD overrides the built-in system prompt
