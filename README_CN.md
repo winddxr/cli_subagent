@@ -241,13 +241,14 @@ logging.basicConfig(level=logging.DEBUG)
 # 方式 2: 仅启用 cli_subagent 日志
 logging.getLogger("cli_subagent.core").setLevel(logging.DEBUG)
 logging.getLogger("cli_subagent.core").addHandler(logging.StreamHandler())
+# 注意: cli_subagent 包位于 py-impl/cli_subagent/
 ```
 
 日志包含：CLI 发现、命令执行、返回状态、解析结果等关键信息。
 
 ## 添加新的 CLI
 
-1. 在 `profiles.py` 中定义新的解析函数
+1. 在 `py-impl/cli_subagent/profiles.py` 中定义新的解析函数
 2. 创建新的 `CLIProfile` 实例
 3. 添加到 `PROFILES` 字典
 
@@ -273,8 +274,17 @@ PROFILES["new_cli"] = NEW_CLI_PROFILE
 
 ```
 cli_subagent/
-├── README.md       # 本文档
-├── __init__.py     # 包导出
-├── core.py         # 核心类定义 (UniversalCLIAgent, AgentResult, InputMode)
-└── profiles.py     # CLI Profile 配置 (GEMINI_PROFILE, CODEX_PROFILE)
+├── README.md                        # 本文档
+├── AGENTS.md                        # Agent 指令
+├── dev-doc/                         # 设计文档
+│   ├── CLI_INVOCATION_PROTOCOL.md   # 完整 CLI 协议规范
+│   ├── BUN_API_REFERENCE.md         # TS 重写 Bun API 映射
+│   └── COMPATIBILITY_FINDINGS.md    # CLI 版本兼容性发现
+├── py-impl/                         # Python 参考实现
+│   ├── cli_subagent/                # Python 包
+│   │   ├── __init__.py              # 包导出
+│   │   ├── core.py                  # 核心类定义 (UniversalCLIAgent, AgentResult, InputMode)
+│   │   └── profiles.py             # CLI Profile 配置 (GEMINI_PROFILE, CODEX_PROFILE)
+│   └── test_compatibility.py        # 集成测试
+└── model_list.md                    # 支持的模型标识
 ```

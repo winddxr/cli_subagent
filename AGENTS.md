@@ -2,20 +2,20 @@
 
 ## Project Overview
 
-TypeScript/Bun rewrite of a CLI subagent library. Wraps LLM CLIs (Gemini CLI, Codex CLI) as subprocess-based subagents through a unified, profile-driven interface. Optimize for correctness of CLI invocation protocols and cross-platform compatibility (Windows + Unix). The Python reference implementation (`core.py`, `profiles.py`) is the behavioral spec — the TS version must produce identical `AgentResult` for the same inputs.
+TypeScript/Bun rewrite of a CLI subagent library. Wraps LLM CLIs (Gemini CLI, Codex CLI) as subprocess-based subagents through a unified, profile-driven interface. Optimize for correctness of CLI invocation protocols and cross-platform compatibility (Windows + Unix). The Python reference implementation (`py-impl/cli_subagent/`) is the behavioral spec — the TS version must produce identical `AgentResult` for the same inputs.
 
 ## Tech Stack
 
 - TypeScript, Bun runtime (`Bun.spawn`, `Bun.which`)
 - Zero external runtime dependencies — use `node:fs/promises`, `node:os`, `node:path` only
 - CLIs under test: `@google/gemini-cli`, `@openai/codex` (npm global packages)
-- Python reference: `core.py` + `profiles.py` (behavioral ground truth)
+- Python reference: `py-impl/cli_subagent/` (behavioral ground truth)
 
 ## Commands
 
 ```bash
 # Run the Python reference tests (verify CLIs are working)
-uv run python test_compatibility.py
+cd py-impl && uv run python test_compatibility.py
 
 # TypeScript (once scaffolded)
 bun test                    # run tests
@@ -26,8 +26,8 @@ bun run build               # type-check + bundle
 
 ### Python Reference (read-only, do not modify without reason)
 
-- `core.py` — `UniversalCLIAgent`, `CLIProfile`, `AgentResult`, `InputMode`, CLI discovery
-- `profiles.py` — `GEMINI_PROFILE` / `CODEX_PROFILE`, output parsers, profile registry
+- `py-impl/cli_subagent/core.py` — `UniversalCLIAgent`, `CLIProfile`, `AgentResult`, `InputMode`, CLI discovery
+- `py-impl/cli_subagent/profiles.py` — `GEMINI_PROFILE` / `CODEX_PROFILE`, output parsers, profile registry
 
 ### TypeScript Target Structure
 
@@ -63,11 +63,11 @@ Port the same abstractions. Key mapping:
 - NEVER set or override `CODEX_HOME` env var — breaks Codex authentication
 - NEVER pass task prompt via command-line arguments — always via stdin
 - Do NOT add external runtime dependencies
-- Do NOT modify the Python reference files unless fixing a confirmed bug
+- Do NOT modify the Python reference files (`py-impl/`) unless fixing a confirmed bug
 
 ## Verification
 
-- Python reference tests: `uv run python test_compatibility.py` — all 5 layers must pass
+- Python reference tests: `cd py-impl && uv run python test_compatibility.py` — all 5 layers must pass
 - TS implementation must produce identical `AgentResult` shape and error types for the same CLI outputs
 - After any parser change, verify against raw output samples in `dev-doc/COMPATIBILITY_FINDINGS.md` Section 6
 

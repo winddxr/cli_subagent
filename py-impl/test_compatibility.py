@@ -24,8 +24,8 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-# 确保 cli_subagent 包可导入（将父目录加入 sys.path）
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# 确保 cli_subagent 包可导入（将当前目录加入 sys.path）
+sys.path.insert(0, str(Path(__file__).parent))
 
 from cli_subagent.core import (
     AgentResult,

@@ -368,7 +368,7 @@ Environment:
 ## 10. Output Collection And Parsing
 
 The Bun API only collects raw text. The existing parser logic should be ported
-directly from `profiles.py`.
+directly from `py-impl/cli_subagent/profiles.py`.
 
 Gemini:
 
