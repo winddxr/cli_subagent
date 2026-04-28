@@ -183,31 +183,22 @@ async function resolveCliExecutable(
 
   if (!exe) return null;
 
-  // Optionally verify the CLI works by running --version
+  // Optionally verify the CLI works by running --version.
+  // Uses Bun.spawnSync per AGENTS.md: "Bun.spawnSync only for --version checks if needed"
   if (verifyVersion) {
     try {
       const checkEnv: Record<string, string | undefined> = env
         ? { ...env, PATH: extendedPath }
         : { ...process.env, PATH: extendedPath };
 
-      const check = Bun.spawn({
+      const result = Bun.spawnSync({
         cmd: [exe, "--version"],
         env: checkEnv,
         stdout: "pipe",
         stderr: "pipe",
+        timeout: 10_000, // 10 seconds in milliseconds
       });
-
-      // 10-second timeout matching Python implementation
-      const exitCode = await Promise.race([
-        check.exited,
-        new Promise<null>((resolve) =>
-          setTimeout(() => {
-            check.kill("SIGTERM");
-            resolve(null);
-          }, 10_000),
-        ),
-      ]);
-      if (exitCode === null || exitCode !== 0) return null;
+      if (result.exitCode !== 0) return null;
     } catch {
       return null;
     }
@@ -534,10 +525,37 @@ class UniversalCLIAgent {
       this.mode = InputMode.FILE;
       this.agentPromptPath = resolve(options.agentPromptPath);
       this.agentWorkspace = null;
+      // Validate prompt file exists (matches Python reference behavior)
+      if (!_existsSync(this.agentPromptPath)) {
+        throw new Error(`Agent prompt file not found: ${this.agentPromptPath}`);
+      }
     } else {
       this.mode = InputMode.DIRECTORY;
       this.agentWorkspace = resolve(options.agentWorkspace!);
       this.agentPromptPath = null;
+      // Validate workspace directory exists and is a directory
+      if (!_existsSync(this.agentWorkspace)) {
+        throw new Error(`Agent workspace not found: ${this.agentWorkspace}`);
+      }
+      try {
+        const stat = statSync(this.agentWorkspace);
+        if (!stat.isDirectory()) {
+          throw new Error(`Agent workspace must be a directory: ${this.agentWorkspace}`);
+        }
+      } catch (e: any) {
+        if (e.message?.startsWith("Agent workspace must be")) throw e;
+        throw new Error(`Agent workspace not found: ${this.agentWorkspace}`);
+      }
+      // Validate system prompt file exists in workspace
+      if (this.profile.dirModeSystemFile) {
+        const expectedPrompt = join(this.agentWorkspace, this.profile.dirModeSystemFile);
+        if (!_existsSync(expectedPrompt)) {
+          throw new Error(
+            `System prompt not found in workspace: ${expectedPrompt}\n` +
+            `Expected location based on profile '${this.profile.name}': ${this.profile.dirModeSystemFile}`,
+          );
+        }
+      }
     }
   }
 
@@ -666,7 +684,10 @@ class UniversalCLIAgent {
         result.exitCode ?? 1,
       );
     } catch (e: any) {
-      if (e.code === "ENOENT" || e.message?.includes("not found")) {
+      // Match Python: only FileNotFoundError from subprocess.run (missing CLI binary)
+      // maps to cli_not_found. With constructor validation, ENOENT from missing
+      // prompt/workspace files no longer reaches here.
+      if (e.code === "ENOENT") {
         return {
           ok: false,
           content: "",

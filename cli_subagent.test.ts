@@ -258,6 +258,9 @@ describe("Layer 4: UniversalCLIAgent Construction", () => {
     tempDir = await mkdtemp(join(tmpdir(), "cli_subagent_test_"));
     promptFile = join(tempDir, "test_system.md");
     await writeFile(promptFile, "You are a test assistant.", "utf-8");
+    // Create system prompt file expected by CODEX_PROFILE in directory mode
+    const codexSystemFile = join(tempDir, CODEX_PROFILE.dirModeSystemFile);
+    await writeFile(codexSystemFile, "You are a test assistant.", "utf-8");
   });
 
   afterAll(async () => {
