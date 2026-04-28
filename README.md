@@ -13,7 +13,7 @@ Full vibe coding. Not elegant.
 | | Language | Runtime | Entry Point |
 |---|----------|---------|-------------|
 | **TS** (primary) | TypeScript | [Bun](https://bun.sh) | [`cli_subagent.ts`](cli_subagent.ts) |
-| **Python** (reference) | Python 3.10+ | CPython / uv | [`py-impl/`](py-impl/) |
+| **Python** (reference) | Python 3.10+ | CPython / uv | [`py-lib/`](py-lib/) |
 
 Both produce identical `AgentResult` for the same inputs. The Python version is the behavioral spec; the TypeScript version is the recommended runtime.
 
@@ -88,7 +88,7 @@ const result = await agent.call("Write a poem", { model: "gemini-2.5-flash" });
 
 ## Quick Start (Python)
 
-See [py-impl/README.md](py-impl/README.md) for the full Python API reference.
+See [py-lib/README.md](py-lib/README.md) for the full Python API reference.
 
 ```python
 from cli_subagent import UniversalCLIAgent, GEMINI_PROFILE
@@ -168,7 +168,7 @@ PROFILES.set("new_cli", NEW_PROFILE);
 cli_subagent/
 ├── cli_subagent.ts              # TypeScript implementation (single file, Bun)
 ├── cli_subagent.test.ts         # TypeScript tests
-├── py-impl/                     # Python reference implementation
+├── py-lib/                     # Python reference implementation
 │   ├── cli_subagent/            # Python package
 │   │   ├── __init__.py
 │   │   ├── core.py              # Core classes
@@ -191,7 +191,7 @@ cli_subagent/
 bun test
 
 # Python
-cd py-impl && uv run python test_compatibility.py
+cd py-lib && uv run python test_compatibility.py
 ```
 
 ## License

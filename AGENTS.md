@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-TypeScript/Bun rewrite of a CLI subagent library. Wraps LLM CLIs (Gemini CLI, Codex CLI) as subprocess-based subagents through a unified, profile-driven interface. Optimize for correctness of CLI invocation protocols and cross-platform compatibility (Windows + Unix). The Python reference implementation (`py-impl/cli_subagent/`) is the behavioral spec — the TS version must produce identical `AgentResult` for the same inputs.
+TypeScript/Bun rewrite of a CLI subagent library. Wraps LLM CLIs (Gemini CLI, Codex CLI) as subprocess-based subagents through a unified, profile-driven interface. Optimize for correctness of CLI invocation protocols and cross-platform compatibility (Windows + Unix). The Python reference implementation (`py-lib/cli_subagent/`) is the behavioral spec — the TS version must produce identical `AgentResult` for the same inputs.
 
 ## Deliverable
 
@@ -14,13 +14,13 @@ TypeScript/Bun rewrite of a CLI subagent library. Wraps LLM CLIs (Gemini CLI, Co
 - **Zero external runtime dependencies**
 - **Zero build step required** — `bun run cli_subagent.ts` must work directly
 - CLIs under test: `@google/gemini-cli`, `@openai/codex` (npm global packages)
-- Python reference: `py-impl/cli_subagent/` (behavioral ground truth)
+- Python reference: `py-lib/cli_subagent/` (behavioral ground truth)
 
 ## Commands
 
 ```bash
 # Run the Python reference tests (verify CLIs are working)
-cd py-impl && uv run python test_compatibility.py
+cd py-lib && uv run python test_compatibility.py
 
 # TypeScript — no build step, run directly
 bun run cli_subagent.ts     # run / import as library
@@ -31,8 +31,8 @@ bun test                    # run tests (test file imports cli_subagent.ts)
 
 ### Python Reference (read-only, do not modify without reason)
 
-- `py-impl/cli_subagent/core.py` — `UniversalCLIAgent`, `CLIProfile`, `AgentResult`, `InputMode`, CLI discovery
-- `py-impl/cli_subagent/profiles.py` — `GEMINI_PROFILE` / `CODEX_PROFILE`, output parsers, profile registry
+- `py-lib/cli_subagent/core.py` — `UniversalCLIAgent`, `CLIProfile`, `AgentResult`, `InputMode`, CLI discovery
+- `py-lib/cli_subagent/profiles.py` — `GEMINI_PROFILE` / `CODEX_PROFILE`, output parsers, profile registry
 
 ### TypeScript Target Structure
 
@@ -82,11 +82,11 @@ Port the same abstractions. Key mapping:
 - NEVER pass task prompt via command-line arguments — always via stdin
 - Do NOT add external runtime dependencies
 - Do NOT split `cli_subagent.ts` into multiple files — single-file is a hard constraint
-- Do NOT modify the Python reference files (`py-impl/`) unless fixing a confirmed bug
+- Do NOT modify the Python reference files (`py-lib/`) unless fixing a confirmed bug
 
 ## Verification
 
-- Python reference tests: `cd py-impl && uv run python test_compatibility.py` — all 5 layers must pass
+- Python reference tests: `cd py-lib && uv run python test_compatibility.py` — all 5 layers must pass
 - TS implementation must produce identical `AgentResult` shape and error types for the same CLI outputs
 - After any parser change, verify against raw output samples in `dev-doc/COMPATIBILITY_FINDINGS.md` Section 6
 

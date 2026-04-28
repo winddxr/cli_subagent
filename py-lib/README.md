@@ -229,14 +229,14 @@ logging.basicConfig(level=logging.DEBUG)
 # Method 2: Enable only cli_subagent logs
 logging.getLogger("cli_subagent.core").setLevel(logging.DEBUG)
 logging.getLogger("cli_subagent.core").addHandler(logging.StreamHandler())
-# Note: cli_subagent package is located under py-impl/cli_subagent/
+# Note: cli_subagent package is located under py-lib/cli_subagent/
 ```
 
 Logs include: CLI discovery, command execution, return status, parsing results, etc.
 
 ## Adding a New CLI
 
-1. Define a new parsing function in `py-impl/cli_subagent/profiles.py`
+1. Define a new parsing function in `py-lib/cli_subagent/profiles.py`
 2. Create a new `CLIProfile` instance
 3. Add to `PROFILES` dictionary
 
@@ -269,7 +269,7 @@ cli_subagent/
 │   ├── CLI_INVOCATION_PROTOCOL.md   # Complete CLI protocol spec
 │   ├── BUN_API_REFERENCE.md         # Bun API mapping for TS rewrite
 │   └── COMPATIBILITY_FINDINGS.md    # CLI version compatibility notes
-├── py-impl/                         # Python reference implementation
+├── py-lib/                         # Python reference implementation
 │   ├── cli_subagent/                # Python package
 │   │   ├── __init__.py              # Package exports
 │   │   ├── core.py                  # Core classes (UniversalCLIAgent, AgentResult, InputMode)

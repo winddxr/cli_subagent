@@ -4,7 +4,7 @@
  * Single-file library that wraps LLM CLIs (Gemini CLI, Codex CLI) as
  * subprocess-based subagents through a unified, profile-driven interface.
  *
- * Port of the Python reference implementation in py-impl/cli_subagent/.
+ * Port of the Python reference implementation in py-lib/cli_subagent/.
  *
  * @module cli_subagent
  */
