@@ -24,10 +24,10 @@ or trust this directory in interactive mode.
 
 ### 已执行的修复
 
-在 `profiles.py` 的 `GEMINI_PROFILE.command_template` 中添加了 `"--skip-trust"`：
+在 `py-impl/cli_subagent/profiles.py` 的 `GEMINI_PROFILE.command_template` 中添加了 `"--skip-trust"`：
 
 ```python
-# profiles.py line 252-255
+# py-impl/cli_subagent/profiles.py line 252-255
 command_template=[
     "gemini",
     "--output-format", "json",
@@ -79,7 +79,7 @@ command_template=[
 {"prompt": N, "candidates": N, "total": N, "cached": N, "thoughts": N, "tool": N}
 ```
 
-> 注意：`profiles.py` 第 32 行 docstring 中写的是 `"response": N`，但代码中实际使用的是 `"candidates"`。这个 **docstring 本身就是错误的**，应该修正。
+> 注意：`py-impl/cli_subagent/profiles.py` 第 32 行 docstring 中写的是 `"response": N`，但代码中实际使用的是 `"candidates"`。这个 **docstring 本身就是错误的**，应该修正。
 
 **新版 tokens 结构**：
 
@@ -186,7 +186,7 @@ command_template=[
 **可选更新**：在 `_normalize_codex_stats()` 中新增 `reasoning_tokens` 映射：
 
 ```python
-# profiles.py _normalize_codex_stats() 中添加：
+# py-impl/cli_subagent/profiles.py _normalize_codex_stats() 中添加：
 return {
     "input_tokens": input_tokens,
     "output_tokens": output_tokens,
@@ -233,7 +233,7 @@ NDJSON 事件流格式完全兼容：
 
 ## 5. Docstring 修正建议
 
-`profiles.py` 第 23-38 行 `parse_gemini_json()` 的 docstring 中记录的 JSON 结构与实际不符：
+`py-impl/cli_subagent/profiles.py` 第 23-38 行 `parse_gemini_json()` 的 docstring 中记录的 JSON 结构与实际不符：
 
 **当前 docstring（不准确）**：
 
