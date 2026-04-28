@@ -10,6 +10,7 @@
  */
 
 import { mkdtemp, copyFile, rm } from "node:fs/promises";
+import { statSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import { join, resolve, delimiter, dirname } from "node:path";
 
@@ -85,14 +86,6 @@ interface RunResult {
 
 function _existsSync(p: string): boolean {
   try {
-    return Bun.file(p).size !== undefined;
-  } catch {
-    // Bun.file(p).size throws for directories and missing files;
-    // for directories we need a different check.
-  }
-  // Fallback: use statSync for directories
-  try {
-    const { statSync } = require("node:fs");
     statSync(p);
     return true;
   } catch {
@@ -154,17 +147,8 @@ function buildCandidatePaths(): string[] {
     _addPathIfExists(paths, dirname(nodePath));
   }
 
-  // Deduplicate while preserving order
-  const seen = new Set<string>();
-  const unique: string[] = [];
-  for (const p of paths) {
-    if (!seen.has(p)) {
-      unique.push(p);
-      seen.add(p);
-    }
-  }
-
-  return unique;
+  // Deduplicate while preserving order (Set preserves insertion order)
+  return [...new Set(paths)];
 }
 
 /**
@@ -299,7 +283,7 @@ function parseGeminiJson(stdout: string, stderr: string, returncode: number): Ag
       stats: {},
       error: {
         type: "cli_error",
-        message: (stderr || "") || `CLI exited with code ${returncode}`,
+        message: stderr || `CLI exited with code ${returncode}`,
         returncode,
         raw_output: stdout ? stdout.slice(0, 1000) : null,
       },
@@ -601,8 +585,7 @@ class UniversalCLIAgent {
     model?: string;
   }): UniversalCLIAgent {
     const resolved = resolve(options.path);
-    const { statSync } = require("node:fs");
-    let stat: any;
+    let stat: ReturnType<typeof statSync>;
     try {
       stat = statSync(resolved);
     } catch {
@@ -723,6 +706,37 @@ class UniversalCLIAgent {
   }
 
   /**
+   * Resolve the effective agent prompt path based on mode.
+   */
+  private _resolvePromptPath(): string {
+    if (this.mode === InputMode.DIRECTORY && this.agentWorkspace) {
+      return join(this.agentWorkspace, this.profile.dirModeSystemFile);
+    }
+    return this.agentPromptPath ?? "";
+  }
+
+  /**
+   * Build placeholder map for template substitution.
+   */
+  private _buildPlaceholders(tempDir?: string): Record<string, string> {
+    return {
+      "{agent_prompt_path}": this._resolvePromptPath(),
+      "{temp_dir}": tempDir ?? "",
+    };
+  }
+
+  /**
+   * Apply placeholder substitution to a template string.
+   */
+  private _substitute(template: string, placeholders: Record<string, string>): string {
+    let result = template;
+    for (const [placeholder, replacement] of Object.entries(placeholders)) {
+      result = result.replaceAll(placeholder, replacement);
+    }
+    return result;
+  }
+
+  /**
    * Build environment variables with placeholder substitution.
    */
   private _buildEnv(tempDir?: string): Record<string, string | undefined> {
@@ -731,25 +745,9 @@ class UniversalCLIAgent {
     // Inject extended PATH for CLI discovery (per-subprocess, not global)
     env.PATH = buildExtendedPath();
 
-    // Determine agent prompt path for placeholders
-    let promptPath: string;
-    if (this.mode === InputMode.DIRECTORY && this.agentWorkspace) {
-      promptPath = join(this.agentWorkspace, this.profile.dirModeSystemFile);
-    } else {
-      promptPath = this.agentPromptPath ?? "";
-    }
-
-    const placeholders: Record<string, string> = {
-      "{agent_prompt_path}": promptPath,
-      "{temp_dir}": tempDir ?? "",
-    };
-
+    const placeholders = this._buildPlaceholders(tempDir);
     for (const [key, template] of Object.entries(this.profile.envVars)) {
-      let value = template;
-      for (const [placeholder, replacement] of Object.entries(placeholders)) {
-        value = value.replaceAll(placeholder, replacement);
-      }
-      env[key] = value;
+      env[key] = this._substitute(template, placeholders);
     }
 
     return env;
@@ -763,27 +761,12 @@ class UniversalCLIAgent {
     env: Record<string, string | undefined>,
     model: string | undefined,
   ): Promise<string[]> {
-    // Determine agent prompt path for placeholders
-    let promptPath: string;
-    if (this.mode === InputMode.DIRECTORY && this.agentWorkspace) {
-      promptPath = join(this.agentWorkspace, this.profile.dirModeSystemFile);
-    } else {
-      promptPath = this.agentPromptPath ?? "";
-    }
-
-    const placeholders: Record<string, string> = {
-      "{agent_prompt_path}": promptPath,
-      "{temp_dir}": tempDir ?? "",
-    };
-
-    const extendedPath = (env.PATH as string) ?? buildExtendedPath();
+    const placeholders = this._buildPlaceholders(tempDir);
+    const extendedPath = env.PATH as string;
 
     const cmd: string[] = [];
     for (let i = 0; i < this.profile.commandTemplate.length; i++) {
-      let part = this.profile.commandTemplate[i];
-      for (const [placeholder, replacement] of Object.entries(placeholders)) {
-        part = part.replaceAll(placeholder, replacement);
-      }
+      let part = this._substitute(this.profile.commandTemplate[i], placeholders);
 
       // For the first element (CLI executable), resolve full path
       if (i === 0) {
