@@ -2,7 +2,7 @@
 
 [中文](./README_CN.md) | [Back to project root](../README.md)
 
-Python reference implementation of the CLI subagent library. This is the behavioral spec — the TypeScript version ([`cli_subagent.ts`](../cli_subagent.ts)) must produce identical `AgentResult` for the same inputs.
+Python reference implementation of the CLI subagent library. This is the behavioral spec — the TypeScript version ([`ts-lib/cli_subagent.test.ts`](../ts-lib/cli_subagent.test.ts)) must produce identical `AgentResult` for the same inputs.
 
 ## Features
 

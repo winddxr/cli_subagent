@@ -2,7 +2,7 @@
 
 [English](./README.md) | [返回项目根目录](../README_CN.md)
 
-CLI subagent 库的 Python 参考实现。此版本是行为规范 —— TypeScript 版本（[`cli_subagent.ts`](../cli_subagent.ts)）必须对相同输入产生一致的 `AgentResult`。
+CLI subagent 库的 Python 参考实现。此版本是行为规范 —— TypeScript 版本（[`ts-lib/cli_subagent.test.ts`](../ts-lib/cli_subagent.test.ts)）必须对相同输入产生一致的 `AgentResult`。
 
 ## 功能特性
 

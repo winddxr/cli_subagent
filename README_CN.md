@@ -12,7 +12,7 @@
 
 | | 语言 | 运行时 | 入口 |
 |---|------|--------|------|
-| **TS** (主力) | TypeScript | [Bun](https://bun.sh) | [`cli_subagent.ts`](cli_subagent.ts) |
+| **TS** (主力) | TypeScript | [Bun](https://bun.sh) | [`ts-lib/cli_subagent.test.ts`](ts-lib/cli_subagent.test.ts) |
 | **Python** (参考) | Python 3.10+ | CPython / uv | [`py-lib/`](py-lib/) |
 
 两个版本对相同输入产生一致的 `AgentResult`。Python 版本是行为规范；TypeScript 版本是推荐的运行时。
@@ -29,7 +29,7 @@
 ```ts
 import {
   UniversalCLIAgent, GEMINI_PROFILE, CODEX_PROFILE
-} from "./cli_subagent.ts";
+} from "./ts-lib/cli_subagent.test.ts";
 
 // 自动检测文件或目录
 const agent = UniversalCLIAgent.fromPath({
@@ -166,8 +166,8 @@ PROFILES.set("new_cli", NEW_PROFILE);
 
 ```
 cli_subagent/
-├── cli_subagent.ts              # TypeScript 实现（单文件，Bun）
-├── cli_subagent.test.ts         # TypeScript 测试
+├── ts-lib/cli_subagent.test.ts              # TypeScript 实现（单文件，Bun）
+├── ts-lib/cli_subagent.test.ts         # TypeScript 测试
 ├── py-lib/                     # Python 参考实现
 │   ├── cli_subagent/            # Python 包
 │   │   ├── __init__.py

@@ -12,7 +12,7 @@ Full vibe coding. Not elegant.
 
 | | Language | Runtime | Entry Point |
 |---|----------|---------|-------------|
-| **TS** (primary) | TypeScript | [Bun](https://bun.sh) | [`cli_subagent.ts`](cli_subagent.ts) |
+| **TS** (primary) | TypeScript | [Bun](https://bun.sh) | [`ts-lib/cli_subagent.test.ts`](ts-lib/cli_subagent.test.ts) |
 | **Python** (reference) | Python 3.10+ | CPython / uv | [`py-lib/`](py-lib/) |
 
 Both produce identical `AgentResult` for the same inputs. The Python version is the behavioral spec; the TypeScript version is the recommended runtime.
@@ -29,7 +29,7 @@ Both produce identical `AgentResult` for the same inputs. The Python version is 
 ```ts
 import {
   UniversalCLIAgent, GEMINI_PROFILE, CODEX_PROFILE
-} from "./cli_subagent.ts";
+} from "./ts-lib/cli_subagent.test.ts";
 
 // Auto-detect file vs directory
 const agent = UniversalCLIAgent.fromPath({
@@ -166,8 +166,8 @@ PROFILES.set("new_cli", NEW_PROFILE);
 
 ```
 cli_subagent/
-├── cli_subagent.ts              # TypeScript implementation (single file, Bun)
-├── cli_subagent.test.ts         # TypeScript tests
+├── ts-lib/cli_subagent.test.ts              # TypeScript implementation (single file, Bun)
+├── ts-lib/cli_subagent.test.ts         # TypeScript tests
 ├── py-lib/                     # Python reference implementation
 │   ├── cli_subagent/            # Python package
 │   │   ├── __init__.py

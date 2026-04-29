@@ -4,13 +4,13 @@
 TypeScript/Bun rewrite of a CLI subagent library. Wraps LLM CLIs (Gemini CLI, Codex CLI) as subprocess-based subagents through a unified, profile-driven interface. Optimize for correctness of CLI invocation protocols and cross-platform compatibility (Windows + Unix). The Python reference implementation (`py-lib/cli_subagent/`) is the behavioral spec — the TS version must produce identical `AgentResult` for the same inputs.
 
 ## Deliverable
-**Single-file library**: the entire TS implementation MUST be a single `cli_subagent.ts` file at the project root. No multi-file module structure, no barrel exports, no splitting by concern. All types, profiles, parsers, and core logic live in one file.
+**Single-file library**: the entire TS implementation MUST be a single `ts-lib/cli_subagent.test.ts` file at the project root. No multi-file module structure, no barrel exports, no splitting by concern. All types, profiles, parsers, and core logic live in one file.
 
 ## Tech Stack
 
 - TypeScript, Bun runtime — **Bun API 优先**，仅在 Bun 无对应 API 时回退 `node:*`
 - **Zero external runtime dependencies**
-- **Zero build step required** — `bun run cli_subagent.ts` must work directly
+- **Zero build step required** — `bun run ts-lib/cli_subagent.test.ts` must work directly
 - CLIs under test: `@google/gemini-cli`, `@openai/codex` (npm global packages), `@anthropic-ai/claude-code` (standalone CLI)
 - Python reference: `py-lib/cli_subagent/` (behavioral ground truth)
 
@@ -21,8 +21,8 @@ TypeScript/Bun rewrite of a CLI subagent library. Wraps LLM CLIs (Gemini CLI, Co
 cd py-lib && uv run python test_compatibility.py
 
 # TypeScript — no build step, run directly
-bun run cli_subagent.ts     # run / import as library
-bun test                    # run tests (test file imports cli_subagent.ts)
+bun run ts-lib/cli_subagent.test.ts     # run / import as library
+bun test                    # run tests (test file imports ts-lib/cli_subagent.test.ts)
 ```
 
 ## Architecture
@@ -34,7 +34,7 @@ bun test                    # run tests (test file imports cli_subagent.ts)
 
 ### TypeScript Target Structure
 
-All code lives in **one file**: `cli_subagent.ts`. Internal organization uses regions/comments, not separate files. The file should export the public API at the bottom (`export { UniversalCLIAgent, AgentResult, CLIProfile, ... }`).
+All code lives in **one file**: `ts-lib/cli_subagent.test.ts`. Internal organization uses regions/comments, not separate files. The file should export the public API at the bottom (`export { UniversalCLIAgent, AgentResult, CLIProfile, ... }`).
 
 Port the same abstractions. Key mapping:
 
@@ -59,7 +59,7 @@ Port the same abstractions. Key mapping:
 
 ## Coding Conventions
 
-- **Single file** — all code in `cli_subagent.ts`, no splitting
+- **Single file** — all code in `ts-lib/cli_subagent.test.ts`, no splitting
 - **Bun API 优先原则** — 有 Bun 原生 API 的场景必须用 Bun API，禁止用 `node:*` 替代：
   - 文件读写：`Bun.file()` / `Bun.write()` — 不用 `fs.readFile` / `fs.writeFile`
   - 文件存在检查：`Bun.file(path).exists()` — 不用 `fs.access` / `fs.stat`
@@ -79,7 +79,7 @@ Port the same abstractions. Key mapping:
 - NEVER set or override `CODEX_HOME` env var — breaks Codex authentication
 - NEVER pass task prompt via command-line arguments — always via stdin
 - Do NOT add external runtime dependencies
-- Do NOT split `cli_subagent.ts` into multiple files — single-file is a hard constraint
+- Do NOT split `ts-lib/cli_subagent.test.ts` into multiple files — single-file is a hard constraint
 - Do NOT modify the Python reference files (`py-lib/`) unless fixing a confirmed bug
 
 ## Verification
