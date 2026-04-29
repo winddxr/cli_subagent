@@ -1,11 +1,9 @@
 # AGENTS.md
 
 ## Project Overview
-
 TypeScript/Bun rewrite of a CLI subagent library. Wraps LLM CLIs (Gemini CLI, Codex CLI) as subprocess-based subagents through a unified, profile-driven interface. Optimize for correctness of CLI invocation protocols and cross-platform compatibility (Windows + Unix). The Python reference implementation (`py-lib/cli_subagent/`) is the behavioral spec — the TS version must produce identical `AgentResult` for the same inputs.
 
 ## Deliverable
-
 **Single-file library**: the entire TS implementation MUST be a single `cli_subagent.ts` file at the project root. No multi-file module structure, no barrel exports, no splitting by concern. All types, profiles, parsers, and core logic live in one file.
 
 ## Tech Stack
