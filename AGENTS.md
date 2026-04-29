@@ -11,7 +11,7 @@ TypeScript/Bun rewrite of a CLI subagent library. Wraps LLM CLIs (Gemini CLI, Co
 - TypeScript, Bun runtime — **Bun API 优先**，仅在 Bun 无对应 API 时回退 `node:*`
 - **Zero external runtime dependencies**
 - **Zero build step required** — `bun run cli_subagent.ts` must work directly
-- CLIs under test: `@google/gemini-cli`, `@openai/codex` (npm global packages)
+- CLIs under test: `@google/gemini-cli`, `@openai/codex` (npm global packages), `@anthropic-ai/claude-code` (standalone CLI)
 - Python reference: `py-lib/cli_subagent/` (behavioral ground truth)
 
 ## Commands
@@ -53,7 +53,7 @@ Port the same abstractions. Key mapping:
 ### Invariant Design Rules
 
 - Task prompt is ALWAYS delivered via **stdin**, never command args
-- System prompt delivery differs per CLI: Gemini uses `GEMINI_SYSTEM_MD` env var pointing to file; Codex uses `AGENTS.override.md` file placed in subprocess `cwd`
+- System prompt delivery differs per CLI: Gemini uses `GEMINI_SYSTEM_MD` env var pointing to file; Codex uses `AGENTS.override.md` file placed in subprocess `cwd`; Claude uses `--append-system-prompt-file` flag with file path
 - Adding a new CLI = define parser function + `CLIProfile` object + register in profiles map
 - Two input modes: FILE (single prompt file) and DIRECTORY (workspace with expected structure)
 
@@ -94,7 +94,8 @@ Only read these when working on the matching scope:
 
 | Condition | Document |
 |-----------|----------|
-| Implementing subprocess calls, command flags, output parsing, or CLI discovery | `dev-doc/CLI_INVOCATION_PROTOCOL.md` (complete protocol spec) |
+| Implementing subprocess calls, command flags, output parsing, or CLI discovery (Gemini/Codex) | `dev-doc/CLI_INVOCATION_PROTOCOL.md` (complete protocol spec) |
+| Implementing Claude Code subprocess calls, flags, output parsing, auth detection | `dev-doc/CLAUDE_CODE_INVOCATION_PROTOCOL.md` |
 | Mapping Python APIs to Bun equivalents (`Bun.spawn`, `Bun.which`, fs, env) | `dev-doc/BUN_API_REFERENCE.md` |
 | Debugging CLI version breakage or verifying output format assumptions | `dev-doc/COMPATIBILITY_FINDINGS.md` |
-| Looking up model identifiers for Gemini or Codex | `model_list.md` |
+| Looking up model identifiers for Gemini, Codex, or Claude | `model_list.md` |

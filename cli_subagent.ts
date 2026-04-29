@@ -62,6 +62,8 @@ interface CLIProfile {
   fileModeOverrideName: string;
   dirModeSystemFile: string;
   model?: string;
+  /** Flag prefix used to pass model name; defaults to "-m". Claude uses "--model". */
+  modelFlag?: string;
 }
 
 /** Input mode for CLI agent invocation. */
@@ -446,6 +448,120 @@ function _normalizeCodexStats(usage: Record<string, any>): Record<string, any> {
   };
 }
 
+/**
+ * Parse `claude --bare -p --output-format json` output.
+ *
+ * stdout is a single JSON object (SDKResultMessage) with fields:
+ *   type, subtype, is_error, result, usage, modelUsage, total_cost_usd, ...
+ *
+ * Token stats are mapped to AgentResult.stats with snake_case keys.
+ * Per-model breakdown in modelUsage is normalized from camelCase to snake_case.
+ */
+function parseClaudeJson(stdout: string, stderr: string, returncode: number): AgentResult {
+  // Try JSON parse regardless of exit code — Claude returns structured JSON
+  // even on non-zero exits (e.g. budget exceeded §9.2).
+  let data: any;
+  try {
+    data = JSON.parse(stdout.trim());
+  } catch (e) {
+    if (returncode !== 0) {
+      return {
+        ok: false,
+        content: "",
+        stats: {},
+        error: {
+          type: "cli_error",
+          message: stderr || `CLI exited with code ${returncode}`,
+          returncode,
+          raw_output: stdout ? stdout.slice(0, 1000) : null,
+        },
+      };
+    }
+    return {
+      ok: false,
+      content: "",
+      stats: {},
+      error: {
+        type: "parse_error",
+        message: `JSON parse failed: ${e}`,
+        raw_output: stdout.slice(0, 1000),
+      },
+    };
+  }
+
+  // Error subtypes: "error_max_turns", "error_during_execution", "error_max_budget_usd", etc.
+  if (data.is_error === true || (data.subtype && data.subtype !== "success")) {
+    const errors: string[] = data.errors ?? [];
+    return {
+      ok: false,
+      content: "",
+      stats: _normalizeClaudeStats(data),
+      error: {
+        type: "agent_error",
+        message: errors.join("; ") || data.subtype || "unknown error",
+        subtype: data.subtype,
+        errors,
+      },
+    };
+  }
+
+  // Valid JSON but non-zero exit without error subtype — still an error
+  if (returncode !== 0) {
+    return {
+      ok: false,
+      content: "",
+      stats: {},
+      error: {
+        type: "cli_error",
+        message: stderr || `CLI exited with code ${returncode}`,
+        returncode,
+        raw_output: stdout ? stdout.slice(0, 1000) : null,
+      },
+    };
+  }
+
+  const content: string = data.result ?? "";
+  return { ok: true, content, stats: _normalizeClaudeStats(data) };
+}
+
+/**
+ * Normalize Claude usage/cost data into the standard stats shape.
+ * Called for both success and error results (Claude uniquely provides
+ * usage data even in error responses like error_max_budget_usd).
+ */
+function _normalizeClaudeStats(data: Record<string, any>): Record<string, any> {
+  const usage: Record<string, any> = data.usage ?? {};
+  const modelUsageRaw: Record<string, any> = data.modelUsage ?? {};
+  const inputTk = usage.input_tokens ?? 0;
+  const outputTk = usage.output_tokens ?? 0;
+
+  // Normalize modelUsage: camelCase → snake_case
+  const perModel: Record<string, Record<string, number>> = {};
+  for (const [modelName, mu] of Object.entries(modelUsageRaw)) {
+    const m = mu as Record<string, any>;
+    perModel[modelName] = {
+      input_tokens: m.inputTokens ?? 0,
+      output_tokens: m.outputTokens ?? 0,
+      cached_tokens: m.cacheReadInputTokens ?? 0,
+      cache_creation_tokens: m.cacheCreationInputTokens ?? 0,
+      cost_usd: m.costUSD ?? 0,
+    };
+  }
+
+  return {
+    input_tokens: inputTk,
+    output_tokens: outputTk,
+    total_tokens: inputTk + outputTk,
+    cached_tokens: usage.cache_read_input_tokens ?? 0,
+    cache_creation_tokens: usage.cache_creation_input_tokens ?? 0,
+    cost_usd: data.total_cost_usd ?? 0,
+    duration_ms: data.duration_ms ?? 0,
+    num_turns: data.num_turns ?? 1,
+    per_model: perModel,
+    raw: usage,
+  };
+}
+
 // =============================================================================
 // Predefined CLI Profiles
 // =============================================================================
@@ -472,10 +588,90 @@ const CODEX_PROFILE: CLIProfile = {
   dirModeSystemFile: "AGENTS.md",
 };
 
-/** Profile registry for easy lookup by name. */
+/**
+ * Base profile fields shared between bare and non-bare Claude profiles.
+ */
+const _CLAUDE_PROFILE_BASE = {
+  name: "claude",
+  envVars: {},
+  outputParser: parseClaudeJson,
+  requiresTempDir: false,
+  fileModeOverrideName: "",
+  dirModeSystemFile: ".claude/system.md",
+  modelFlag: "--model",
+} as const satisfies Omit<CLIProfile, "commandTemplate">;
+
+/**
+ * Claude Code profile with `--bare` flag.
+ *
+ * `--bare` skips hooks, skills, plugins, MCP servers, auto memory, CLAUDE.md
+ * discovery.  Faster and deterministic, but requires non-OAuth auth:
+ *   ANTHROPIC_API_KEY env var, Bedrock, or Vertex.
+ *
+ * Use `getClaudeProfile()` for automatic detection instead of picking manually.
+ */
+const CLAUDE_PROFILE: CLIProfile = {
+  ..._CLAUDE_PROFILE_BASE,
+  commandTemplate: [
+    "claude", "--bare", "-p",
+    "--output-format", "json",
+    "--append-system-prompt-file", "{agent_prompt_path}",
+  ],
+};
+
+/**
+ * Claude Code profile **without** `--bare` flag.
+ *
+ * Enables OAuth/keychain auth (`claude auth login`), but also loads hooks,
+ * skills, plugins, MCP servers and CLAUDE.md — slower startup.
+ *
+ * Use `getClaudeProfile()` for automatic detection instead of picking manually.
+ */
+const CLAUDE_OAUTH_PROFILE: CLIProfile = {
+  ..._CLAUDE_PROFILE_BASE,
+  commandTemplate: [
+    "claude", "-p",
+    "--output-format", "json",
+    "--append-system-prompt-file", "{agent_prompt_path}",
+  ],
+};
+
+/**
+ * Detect whether the current environment supports `--bare` mode for Claude Code.
+ *
+ * Returns `true` when any of these are set:
+ *   - `ANTHROPIC_API_KEY`
+ *   - `CLAUDE_CODE_USE_BEDROCK=1`
+ *   - `CLAUDE_CODE_USE_VERTEX=1`
+ *
+ * When none are present, the user is likely using `claude auth login` (OAuth),
+ * which is skipped under `--bare`.
+ */
+function hasBareCompatibleAuth(): boolean {
+  return (
+    !!process.env.ANTHROPIC_API_KEY ||
+    process.env.CLAUDE_CODE_USE_BEDROCK === "1" ||
+    process.env.CLAUDE_CODE_USE_VERTEX === "1"
+  );
+}
+
+/**
+ * Get the appropriate Claude Code profile based on the current auth environment.
+ *
+ * - If `ANTHROPIC_API_KEY`, Bedrock, or Vertex credentials are detected,
+ *   returns `CLAUDE_PROFILE` (with `--bare` — faster, deterministic).
+ * - Otherwise returns `CLAUDE_OAUTH_PROFILE` (without `--bare` — supports
+ *   `claude auth login` OAuth flow).
+ */
+function getClaudeProfile(): CLIProfile {
+  return hasBareCompatibleAuth() ? CLAUDE_PROFILE : CLAUDE_OAUTH_PROFILE;
+}
+
+/** Profile registry for easy lookup by name. Claude uses auto-detected profile. */
 const PROFILES: Record<string, CLIProfile> = {
   gemini: GEMINI_PROFILE,
   codex: CODEX_PROFILE,
+  get claude() { return getClaudeProfile(); },
 };
 
 /**
@@ -806,7 +1002,8 @@ class UniversalCLIAgent {
 
     // Add model flag if specified
     if (model) {
-      cmd.push("-m", model);
+      const flag = this.profile.modelFlag ?? "-m";
+      cmd.push(flag, model);
     }
 
     return cmd;
@@ -828,7 +1025,12 @@ export {
   // Predefined profiles
   GEMINI_PROFILE,
   CODEX_PROFILE,
+  CLAUDE_PROFILE,
+  CLAUDE_OAUTH_PROFILE,
   PROFILES,
+  // Claude profile helpers
+  getClaudeProfile,
+  hasBareCompatibleAuth,
   // Utility functions
   getProfile,
   buildCandidatePaths,
@@ -837,6 +1039,7 @@ export {
   // Parsers
   parseGeminiJson,
   parseCodexNdjson,
+  parseClaudeJson,
   // AgentResult accessors
   inputTokens,
   outputTokens,
