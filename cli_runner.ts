@@ -17,7 +17,6 @@
  */
 
 import { mkdtemp, copyFile, rm } from "node:fs/promises";
-import { statSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import { join, resolve, delimiter, dirname } from "node:path";
 
@@ -73,71 +72,80 @@ interface ParsedOutput {
   ok: boolean;
   content: string;
   error?: CLIError;
+  stats?: Record<string, any>;
 }
 
 // =============================================================================
 // CLI Discovery
 // =============================================================================
 
-function _existsSync(p: string): boolean {
+async function _pathExists(p: string): Promise<boolean> {
+  return Bun.file(p).exists();
+}
+
+/**
+ * Check if path is a directory. Bun has no async isDirectory API,
+ * so we use a minimal node:fs.statSync fallback here only.
+ */
+function _isDirectorySync(p: string): boolean {
   try {
-    statSync(p);
-    return true;
+    const { statSync } = require("node:fs");
+    return statSync(p).isDirectory();
   } catch {
     return false;
   }
 }
 
-function _addPathIfExists(paths: string[], p: string | undefined): void {
+async function _addPathIfExists(paths: string[], p: string | undefined): Promise<void> {
   if (!p) return;
   const resolved = p.startsWith("~") ? join(homedir(), p.slice(1)) : resolve(p);
-  if (_existsSync(resolved)) {
+  if (await _pathExists(resolved)) {
     paths.push(resolved);
   }
 }
 
-function buildCandidatePaths(): string[] {
+async function buildCandidatePaths(): Promise<string[]> {
   const paths: string[] = [];
   const env = process.env;
 
   for (const v of ["PNPM_HOME", "NVM_SYMLINK", "NVM_HOME"]) {
-    _addPathIfExists(paths, env[v]);
+    await _addPathIfExists(paths, env[v]);
   }
 
   const npmPrefix = env.NPM_CONFIG_PREFIX;
   if (npmPrefix) {
     if (process.platform === "win32") {
-      _addPathIfExists(paths, npmPrefix);
+      await _addPathIfExists(paths, npmPrefix);
     } else {
-      _addPathIfExists(paths, join(npmPrefix, "bin"));
+      await _addPathIfExists(paths, join(npmPrefix, "bin"));
     }
   }
 
   const appdata = env.APPDATA;
   if (appdata) {
-    _addPathIfExists(paths, join(appdata, "npm"));
+    await _addPathIfExists(paths, join(appdata, "npm"));
   }
   const localapp = env.LOCALAPPDATA;
   if (localapp) {
-    _addPathIfExists(paths, join(localapp, "Yarn", "bin"));
-    _addPathIfExists(paths, join(localapp, "pnpm"));
+    await _addPathIfExists(paths, join(localapp, "Yarn", "bin"));
+    await _addPathIfExists(paths, join(localapp, "pnpm"));
   }
 
-  _addPathIfExists(paths, join(homedir(), ".npm-global", "bin"));
-  _addPathIfExists(paths, join(homedir(), ".local", "share", "pnpm"));
-  _addPathIfExists(paths, join(homedir(), ".yarn", "bin"));
-  _addPathIfExists(paths, "/usr/local/bin");
+  await _addPathIfExists(paths, join(homedir(), ".npm-global", "bin"));
+  await _addPathIfExists(paths, join(homedir(), ".local", "share", "pnpm"));
+  await _addPathIfExists(paths, join(homedir(), ".yarn", "bin"));
+  await _addPathIfExists(paths, "/usr/local/bin");
 
   const nodePath = Bun.which("node");
   if (nodePath) {
-    _addPathIfExists(paths, dirname(nodePath));
+    await _addPathIfExists(paths, dirname(nodePath));
   }
 
   return [...new Set(paths)];
 }
 
-function buildExtendedPath(): string {
-  const extra = buildCandidatePaths();
+async function buildExtendedPath(): Promise<string> {
+  const extra = await buildCandidatePaths();
   const current = process.env.PATH ?? "";
   return [...extra, current].join(delimiter);
 }
@@ -149,7 +157,7 @@ async function resolveCliExecutable(
   env?: Record<string, string | undefined>,
 ): Promise<string | null> {
   if (!extendedPath) {
-    extendedPath = buildExtendedPath();
+    extendedPath = await buildExtendedPath();
   }
 
   let exe = Bun.which(name, { PATH: extendedPath });
@@ -208,7 +216,8 @@ async function runCli(
 
   const timer = setTimeout(() => {
     timedOut = true;
-    proc.kill("SIGTERM");
+    // Windows does not support SIGTERM reliably; use SIGKILL to ensure termination
+    proc.kill(process.platform === "win32" ? "SIGKILL" : "SIGTERM");
   }, options.timeoutSeconds * 1000);
 
   try {
@@ -264,7 +273,44 @@ function parseGeminiOutput(stdout: string, stderr: string, returncode: number): 
     };
   }
 
-  return { ok: true, content: data.response ?? "" };
+  // Extract and normalize Gemini stats
+  const stats = _normalizeGeminiStats(data.stats ?? {});
+
+  return { ok: true, content: data.response ?? "", stats };
+}
+
+function _normalizeGeminiStats(rawStats: Record<string, any>): Record<string, any> {
+  const stats: Record<string, any> = {
+    input_tokens: 0,
+    output_tokens: 0,
+    total_tokens: 0,
+    cached_tokens: 0,
+    thoughts_tokens: 0,
+    tool_tokens: 0,
+    per_model: {},
+  };
+
+  const models = rawStats.models ?? {};
+  for (const [modelName, modelData] of Object.entries<any>(models)) {
+    const tokens = modelData.tokens ?? {};
+    stats.input_tokens += tokens.prompt ?? 0;
+    stats.output_tokens += tokens.candidates ?? 0;
+    stats.total_tokens += tokens.total ?? 0;
+    stats.cached_tokens += tokens.cached ?? 0;
+    stats.thoughts_tokens += tokens.thoughts ?? 0;
+    stats.tool_tokens += tokens.tool ?? 0;
+
+    stats.per_model[modelName] = {
+      input_tokens: tokens.prompt ?? 0,
+      output_tokens: tokens.candidates ?? 0,
+      total_tokens: tokens.total ?? 0,
+      cached_tokens: tokens.cached ?? 0,
+      thoughts_tokens: tokens.thoughts ?? 0,
+      tool_tokens: tokens.tool ?? 0,
+    };
+  }
+
+  return stats;
 }
 
 function parseCodexOutput(stdout: string, stderr: string, returncode: number): ParsedOutput {
@@ -282,6 +328,7 @@ function parseCodexOutput(stdout: string, stderr: string, returncode: number): P
 
   const contentParts: string[] = [];
   const errors: any[] = [];
+  let usage: Record<string, any> = {};
 
   for (const line of (stdout || "").trim().split("\n")) {
     if (!line.trim()) continue;
@@ -301,6 +348,8 @@ function parseCodexOutput(stdout: string, stderr: string, returncode: number): P
         const text: string = item.text ?? "";
         if (text) contentParts.push(text);
       }
+    } else if (eventType === "turn.completed") {
+      usage = event.usage ?? {};
     } else if (eventType === "error") {
       errors.push(event);
     }
@@ -318,7 +367,17 @@ function parseCodexOutput(stdout: string, stderr: string, returncode: number): P
     };
   }
 
-  return { ok: true, content: contentParts.join("\n\n") };
+  // Normalize Codex stats
+  const inputTokens = usage.input_tokens ?? 0;
+  const outputTokens = usage.output_tokens ?? 0;
+  const stats: Record<string, any> = {
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    total_tokens: inputTokens + outputTokens,
+    cached_tokens: usage.cached_input_tokens ?? 0,
+  };
+
+  return { ok: true, content: contentParts.join("\n\n"), stats };
 }
 
 function parseClaudeOutput(stdout: string, stderr: string, returncode: number): ParsedOutput {
@@ -374,7 +433,16 @@ function parseClaudeOutput(stdout: string, stderr: string, returncode: number): 
     };
   }
 
-  return { ok: true, content: data.result ?? "" };
+  // Extract Claude stats from usage field
+  const usage = data.usage ?? {};
+  const stats: Record<string, any> = {
+    input_tokens: usage.input_tokens ?? 0,
+    output_tokens: usage.output_tokens ?? 0,
+    total_tokens: (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0),
+    cached_tokens: usage.cache_read_input_tokens ?? 0,
+  };
+
+  return { ok: true, content: data.result ?? "", stats };
 }
 
 const PARSERS: Record<Provider, (stdout: string, stderr: string, rc: number) => ParsedOutput> = {
@@ -415,7 +483,7 @@ const INSTALL_HINTS: Record<Provider, string> = {
 async function resolveProviderCli(
   provider: Provider,
 ): Promise<{ exe: string; env: Record<string, string | undefined>; extendedPath: string }> {
-  const extendedPath = buildExtendedPath();
+  const extendedPath = await buildExtendedPath();
   const env: Record<string, string | undefined> = { ...process.env, PATH: extendedPath };
   const exe = await resolveCliExecutable(CLI_NAMES[provider], extendedPath, true, env);
   if (!exe) fail({ type: "cli_not_found", message: `CLI '${CLI_NAMES[provider]}' not found. Install: ${INSTALL_HINTS[provider]}` });
@@ -521,7 +589,7 @@ Examples:
   echo "say hello" | bun run cli_runner.ts gemini
 `;
 
-function parseArgs(argv: string[]): ParsedArgs {
+async function parseArgs(argv: string[]): Promise<ParsedArgs> {
   // argv: bun run cli_runner.ts [provider] [flags...]
   // Bun gives process.argv as: [bun, cli_runner.ts, ...]
   const args = argv.slice(2);
@@ -581,18 +649,14 @@ function parseArgs(argv: string[]): ParsedArgs {
   }
 
   // Validate paths exist
-  if (result.taskFile && !_existsSync(result.taskFile)) {
+  if (result.taskFile && !(await _pathExists(result.taskFile))) {
     die(`Task file not found: ${result.taskFile}`);
   }
-  if (result.systemPrompt && !_existsSync(result.systemPrompt)) {
+  if (result.systemPrompt && !(await _pathExists(result.systemPrompt))) {
     die(`System prompt file not found: ${result.systemPrompt}`);
   }
   if (result.workspace) {
-    try {
-      if (!statSync(result.workspace).isDirectory()) {
-        die(`Workspace path is not a directory: ${result.workspace}`);
-      }
-    } catch {
+    if (!(await _pathExists(result.workspace)) || !_isDirectorySync(result.workspace)) {
       die(`Workspace directory not found: ${result.workspace}`);
     }
   }
@@ -657,7 +721,7 @@ function die(message: string): never {
 // =============================================================================
 
 async function main(): Promise<void> {
-  const args = parseArgs(process.argv);
+  const args = await parseArgs(process.argv);
   const taskContent = await readTaskContent(args);
 
   // Build CLI invocation
@@ -695,6 +759,10 @@ async function main(): Promise<void> {
     );
 
     if (parsed.ok) {
+      // Emit stats to stderr as a single JSON line (non-intrusive to stdout contract)
+      if (parsed.stats) {
+        process.stderr.write(JSON.stringify({ stats: parsed.stats }) + "\n");
+      }
       process.stdout.write(parsed.content);
       process.exit(0);
     } else {
