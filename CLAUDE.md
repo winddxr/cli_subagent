@@ -1,1 +1,1 @@
-you need read AGENTS.md
+AGENTS.md

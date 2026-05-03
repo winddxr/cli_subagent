@@ -12,8 +12,8 @@ Full vibe coding. Not elegant.
 
 | | Language | Runtime | Entry Point |
 |---|----------|---------|-------------|
-| **TS** (primary) | TypeScript | [Bun](https://bun.sh) | [`cli_subagent.ts`](cli_subagent.ts) |
-| **Python** (reference) | Python 3.10+ | CPython / uv | [`py-impl/`](py-impl/) |
+| **TS** (primary) | TypeScript | [Bun](https://bun.sh) | [`ts-lib/cli_subagent.test.ts`](ts-lib/cli_subagent.test.ts) |
+| **Python** (reference) | Python 3.10+ | CPython / uv | [`py-lib/`](py-lib/) |
 
 Both produce identical `AgentResult` for the same inputs. The Python version is the behavioral spec; the TypeScript version is the recommended runtime.
 
@@ -29,7 +29,7 @@ Both produce identical `AgentResult` for the same inputs. The Python version is 
 ```ts
 import {
   UniversalCLIAgent, GEMINI_PROFILE, CODEX_PROFILE
-} from "./cli_subagent.ts";
+} from "./ts-lib/cli_subagent.test.ts";
 
 // Auto-detect file vs directory
 const agent = UniversalCLIAgent.fromPath({
@@ -88,7 +88,7 @@ const result = await agent.call("Write a poem", { model: "gemini-2.5-flash" });
 
 ## Quick Start (Python)
 
-See [py-impl/README.md](py-impl/README.md) for the full Python API reference.
+See [py-lib/README.md](py-lib/README.md) for the full Python API reference.
 
 ```python
 from cli_subagent import UniversalCLIAgent, GEMINI_PROFILE
@@ -100,6 +100,10 @@ agent = UniversalCLIAgent.from_path(
 )
 result = agent.call("Generate a creative concept...")
 ```
+
+## CLI Runner
+
+This project provides a standalone command-line entry point [`cli_runner.ts`](./cli_runner.ts), allowing direct invocation of underlying CLI models from the terminal. For more details, see the [CLI Interface documentation](./cli_runner.md).
 
 ## Core Concepts
 
@@ -166,9 +170,9 @@ PROFILES.set("new_cli", NEW_PROFILE);
 
 ```
 cli_subagent/
-├── cli_subagent.ts              # TypeScript implementation (single file, Bun)
-├── cli_subagent.test.ts         # TypeScript tests
-├── py-impl/                     # Python reference implementation
+├── ts-lib/cli_subagent.test.ts              # TypeScript implementation (single file, Bun)
+├── ts-lib/cli_subagent.test.ts         # TypeScript tests
+├── py-lib/                     # Python reference implementation
 │   ├── cli_subagent/            # Python package
 │   │   ├── __init__.py
 │   │   ├── core.py              # Core classes
@@ -191,7 +195,7 @@ cli_subagent/
 bun test
 
 # Python
-cd py-impl && uv run python test_compatibility.py
+cd py-lib && uv run python test_compatibility.py
 ```
 
 ## License

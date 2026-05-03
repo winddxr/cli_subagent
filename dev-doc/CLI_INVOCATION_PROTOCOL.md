@@ -2,6 +2,8 @@
 
 > **Purpose**: This document describes the exact invocation protocols for Gemini CLI and Codex CLI as used by `cli_subagent`. It is intended to provide sufficient detail for reimplementing this project in any programming language.
 >
+> **Claude Code** is a third supported CLI and is documented separately in `CLAUDE_CODE_INVOCATION_PROTOCOL.md`.
+>
 > **Version**: 2026-04-26
 > **Gemini CLI**: `@google/gemini-cli@0.39.1`
 > **Codex CLI**: `@openai/codex@0.125.0`

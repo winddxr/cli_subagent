@@ -12,8 +12,8 @@
 
 | | 语言 | 运行时 | 入口 |
 |---|------|--------|------|
-| **TS** (主力) | TypeScript | [Bun](https://bun.sh) | [`cli_subagent.ts`](cli_subagent.ts) |
-| **Python** (参考) | Python 3.10+ | CPython / uv | [`py-impl/`](py-impl/) |
+| **TS** (主力) | TypeScript | [Bun](https://bun.sh) | [`ts-lib/cli_subagent.test.ts`](ts-lib/cli_subagent.test.ts) |
+| **Python** (参考) | Python 3.10+ | CPython / uv | [`py-lib/`](py-lib/) |
 
 两个版本对相同输入产生一致的 `AgentResult`。Python 版本是行为规范；TypeScript 版本是推荐的运行时。
 
@@ -29,7 +29,7 @@
 ```ts
 import {
   UniversalCLIAgent, GEMINI_PROFILE, CODEX_PROFILE
-} from "./cli_subagent.ts";
+} from "./ts-lib/cli_subagent.test.ts";
 
 // 自动检测文件或目录
 const agent = UniversalCLIAgent.fromPath({
@@ -88,7 +88,7 @@ const result = await agent.call("写一首诗", { model: "gemini-2.5-flash" });
 
 ## 快速开始 (Python)
 
-完整 Python API 参考见 [py-impl/README_CN.md](py-impl/README_CN.md)。
+完整 Python API 参考见 [py-lib/README_CN.md](py-lib/README_CN.md)。
 
 ```python
 from cli_subagent import UniversalCLIAgent, GEMINI_PROFILE
@@ -100,6 +100,10 @@ agent = UniversalCLIAgent.from_path(
 )
 result = agent.call("生成一个创意概念...")
 ```
+
+## CLI 执行器 (CLI Runner)
+
+本项目提供了一个独立的命令行入口 [`cli_runner.ts`](./cli_runner.ts)，允许通过终端直接调用底层 CLI 模型。详情请参阅 [CLI 接口文档](./cli_runner_CN.md)。
 
 ## 核心概念
 
@@ -166,9 +170,9 @@ PROFILES.set("new_cli", NEW_PROFILE);
 
 ```
 cli_subagent/
-├── cli_subagent.ts              # TypeScript 实现（单文件，Bun）
-├── cli_subagent.test.ts         # TypeScript 测试
-├── py-impl/                     # Python 参考实现
+├── ts-lib/cli_subagent.test.ts              # TypeScript 实现（单文件，Bun）
+├── ts-lib/cli_subagent.test.ts         # TypeScript 测试
+├── py-lib/                     # Python 参考实现
 │   ├── cli_subagent/            # Python 包
 │   │   ├── __init__.py
 │   │   ├── core.py              # 核心类
@@ -191,7 +195,7 @@ cli_subagent/
 bun test
 
 # Python
-cd py-impl && uv run python test_compatibility.py
+cd py-lib && uv run python test_compatibility.py
 ```
 
 ## 许可证

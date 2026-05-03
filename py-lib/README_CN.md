@@ -2,7 +2,7 @@
 
 [English](./README.md) | [返回项目根目录](../README_CN.md)
 
-CLI subagent 库的 Python 参考实现。此版本是行为规范 —— TypeScript 版本（[`cli_subagent.ts`](../cli_subagent.ts)）必须对相同输入产生一致的 `AgentResult`。
+CLI subagent 库的 Python 参考实现。此版本是行为规范 —— TypeScript 版本（[`ts-lib/cli_subagent.test.ts`](../ts-lib/cli_subagent.test.ts)）必须对相同输入产生一致的 `AgentResult`。
 
 ## 功能特性
 
@@ -237,14 +237,14 @@ logging.basicConfig(level=logging.DEBUG)
 # 方式 2: 仅启用 cli_subagent 日志
 logging.getLogger("cli_subagent.core").setLevel(logging.DEBUG)
 logging.getLogger("cli_subagent.core").addHandler(logging.StreamHandler())
-# 注意: cli_subagent 包位于 py-impl/cli_subagent/
+# 注意: cli_subagent 包位于 py-lib/cli_subagent/
 ```
 
 日志包含：CLI 发现、命令执行、返回状态、解析结果等关键信息。
 
 ## 添加新的 CLI
 
-1. 在 `py-impl/cli_subagent/profiles.py` 中定义新的解析函数
+1. 在 `py-lib/cli_subagent/profiles.py` 中定义新的解析函数
 2. 创建新的 `CLIProfile` 实例
 3. 添加到 `PROFILES` 字典
 
@@ -276,7 +276,7 @@ cli_subagent/
 │   ├── CLI_INVOCATION_PROTOCOL.md   # 完整 CLI 协议规范
 │   ├── BUN_API_REFERENCE.md         # TS 重写 Bun API 映射
 │   └── COMPATIBILITY_FINDINGS.md    # CLI 版本兼容性发现
-├── py-impl/                         # Python 参考实现
+├── py-lib/                         # Python 参考实现
 │   ├── cli_subagent/                # Python 包
 │   │   ├── __init__.py              # 包导出
 │   │   ├── core.py                  # 核心类定义 (UniversalCLIAgent, AgentResult, InputMode)
