@@ -7,3 +7,6 @@ __pycache__/
 *.swo
 .DS_Store
 *.log
+
+# Downloaded docs
+dev-doc/ClaudeCode-ref-doc/
