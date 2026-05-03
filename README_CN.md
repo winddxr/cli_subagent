@@ -101,6 +101,10 @@ agent = UniversalCLIAgent.from_path(
 result = agent.call("生成一个创意概念...")
 ```
 
+## CLI 执行器 (CLI Runner)
+
+本项目提供了一个独立的命令行入口 [`cli_runner.ts`](./cli_runner.ts)，允许通过终端直接调用底层 CLI 模型。详情请参阅 [CLI 接口文档](./cli_runner_CN.md)。
+
 ## 核心概念
 
 ### AgentResult

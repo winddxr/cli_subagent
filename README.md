@@ -101,6 +101,10 @@ agent = UniversalCLIAgent.from_path(
 result = agent.call("Generate a creative concept...")
 ```
 
+## CLI Runner
+
+This project provides a standalone command-line entry point [`cli_runner.ts`](./cli_runner.ts), allowing direct invocation of underlying CLI models from the terminal. For more details, see the [CLI Interface documentation](./cli_runner.md).
+
 ## Core Concepts
 
 ### AgentResult

@@ -1,3 +1,7 @@
+# CLI Runner
+
+[中文](./cli_runner_CN.md)
+
 ## CLI Interface
 
 ```
